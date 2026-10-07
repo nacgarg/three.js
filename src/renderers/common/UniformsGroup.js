@@ -2,6 +2,17 @@ import UniformBuffer from './UniformBuffer.js';
 import { GPU_CHUNK_BYTES } from './Constants.js';
 import { error } from '../../utils.js';
 
+// uniform type codes of the update plan, see UniformsGroup#_buildUpdatePlan()
+
+const NUMBER = 0;
+const VECTOR2 = 1;
+const VECTOR3 = 2;
+const VECTOR4 = 3;
+const COLOR = 4;
+const MATRIX3 = 5;
+const MATRIX4 = 6;
+const UNSUPPORTED = 7;
+
 /**
  * This class represents a uniform buffer binding but with
  * an API that allows to maintain individual uniform objects.
@@ -64,21 +75,41 @@ class UniformsGroup extends UniformBuffer {
 		this.uniforms = [];
 
 		/**
-		 * A cache for the uniform update ranges.
+		 * Per-uniform update range objects, indexed by uniform index.
 		 *
 		 * @private
-		 * @type {Map<number, {start: number, count: number}>}
+		 * @type {Array<{start: number, count: number}>}
 		 */
-		this._updateRangeCache = new Map();
+		this._rangeObjects = [];
 
 		/**
-		 * Uniform indices whose range has already been pushed into `updateRanges`
-		 * during the current update cycle. Reset on `clearUpdateRanges()`.
+		 * Per-uniform marker: equals `_rangeEpoch` if the uniform's range has already been
+		 * pushed into `updateRanges` during the current update cycle.
 		 *
 		 * @private
-		 * @type {Set<number>}
+		 * @type {?Uint32Array}
+		 * @default null
 		 */
-		this._addedIndices = new Set();
+		this._rangeMarks = null;
+
+		/**
+		 * The current update cycle, incremented by `clearUpdateRanges()`.
+		 *
+		 * @private
+		 * @type {number}
+		 * @default 1
+		 */
+		this._rangeEpoch = 1;
+
+		/**
+		 * The update plan (type codes, offsets and value sources of all uniforms) used by
+		 * `update()`. It is rebuilt when uniforms are added or removed or the layout is recomputed.
+		 *
+		 * @private
+		 * @type {?Object}
+		 * @default null
+		 */
+		this._updatePlan = null;
 
 	}
 
@@ -89,23 +120,46 @@ class UniformsGroup extends UniformBuffer {
 	 */
 	addUniformUpdateRange( uniform ) {
 
-		const index = uniform.index;
+		this._addRange( uniform.index, uniform.offset, uniform.itemSize );
 
-		if ( this._addedIndices.has( index ) ) return;
+	}
 
-		let range = this._updateRangeCache.get( index );
+	/**
+	 * Adds the update range of the uniform at the given index, at most once per update cycle.
+	 *
+	 * @private
+	 * @param {number} index - The uniform index.
+	 * @param {number} start - The range start (uniform offset).
+	 * @param {number} count - The range length (uniform item size).
+	 */
+	_addRange( index, start, count ) {
+
+		let marks = this._rangeMarks;
+
+		if ( marks === null || index >= marks.length ) {
+
+			const grown = new Uint32Array( Math.max( index + 1, this.uniforms.length ) );
+			if ( marks !== null ) grown.set( marks );
+			marks = this._rangeMarks = grown;
+
+		}
+
+		if ( marks[ index ] === this._rangeEpoch ) return;
+
+		marks[ index ] = this._rangeEpoch;
+
+		let range = this._rangeObjects[ index ];
 
 		if ( range === undefined ) {
 
 			range = { start: 0, count: 0 };
-			this._updateRangeCache.set( index, range );
+			this._rangeObjects[ index ] = range;
 
 		}
 
-		range.start = uniform.offset;
-		range.count = uniform.itemSize;
+		range.start = start;
+		range.count = count;
 
-		this._addedIndices.add( index );
 		this.updateRanges.push( range );
 
 	}
@@ -115,7 +169,14 @@ class UniformsGroup extends UniformBuffer {
 	 */
 	clearUpdateRanges() {
 
-		this._addedIndices.clear();
+		this._rangeEpoch ++;
+
+		if ( this._rangeEpoch === 0xffffffff ) {
+
+			this._rangeEpoch = 1;
+			if ( this._rangeMarks !== null ) this._rangeMarks.fill( 0 );
+
+		}
 
 		super.clearUpdateRanges();
 
@@ -130,6 +191,8 @@ class UniformsGroup extends UniformBuffer {
 	addUniform( uniform ) {
 
 		this.uniforms.push( uniform );
+
+		this._updatePlan = null;
 
 		return this;
 
@@ -148,6 +211,8 @@ class UniformsGroup extends UniformBuffer {
 		if ( index !== - 1 ) {
 
 			this.uniforms.splice( index, 1 );
+
+			this._updatePlan = null;
 
 		}
 
@@ -234,6 +299,8 @@ class UniformsGroup extends UniformBuffer {
 
 		}
 
+		this._updatePlan = null; // offsets may have changed
+
 		return Math.ceil( offset / GPU_CHUNK_BYTES ) * GPU_CHUNK_BYTES;
 
 	}
@@ -249,21 +316,93 @@ class UniformsGroup extends UniformBuffer {
 	 */
 	update() {
 
-		let updated = false;
+		if ( this.uniforms.length === 0 ) return false;
 
+		const a = this.values; // also computes the layout (offsets) if required
+
+		const plan = this._updatePlan !== null ? this._updatePlan : this._buildUpdatePlan();
+		const { types, offsets, sources } = plan;
 		const uniforms = this.uniforms;
 
-		for ( let i = 0, l = uniforms.length; i < l; i ++ ) {
+		let updated = false;
 
-			if ( this.updateByType( uniforms[ i ] ) === true ) {
+		for ( let i = 0, l = types.length; i < l; i ++ ) {
 
-				updated = true;
+			const uniform = uniforms[ i ];
+			const source = sources[ i ];
+			const offset = offsets[ i ];
+
+			let result;
+
+			switch ( types[ i ] ) {
+
+				case NUMBER: result = this._updateNumber( a, uniform, i, offset, source !== null ? source.value : uniform.getValue() ); break;
+				case VECTOR2: result = this._updateVector2( a, uniform, i, offset, source !== null ? source.value : uniform.getValue() ); break;
+				case VECTOR3: result = this._updateVector3( a, uniform, i, offset, source !== null ? source.value : uniform.getValue() ); break;
+				case VECTOR4: result = this._updateVector4( a, uniform, i, offset, source !== null ? source.value : uniform.getValue() ); break;
+				case COLOR: result = this._updateColor( a, i, offset, source !== null ? source.value : uniform.getValue() ); break;
+				case MATRIX3: result = this._updateMatrix3( a, i, offset, ( source !== null ? source.value : uniform.getValue() ).elements ); break;
+				case MATRIX4: result = this._updateMatrix4( a, i, offset, ( source !== null ? source.value : uniform.getValue() ).elements ); break;
+				default: result = this.updateByType( uniform );
 
 			}
+
+			if ( result === true ) updated = true;
 
 		}
 
 		return updated;
+
+	}
+
+	/**
+	 * Builds the update plan: monomorphic arrays with the type code and offset of each uniform
+	 * and, for node uniforms, the node uniform to read the value from. Reading these instead of
+	 * the properties of the (differently shaped) uniform objects keeps `update()` fast.
+	 *
+	 * @private
+	 * @return {Object} The update plan.
+	 */
+	_buildUpdatePlan() {
+
+		const uniforms = this.uniforms;
+		const count = uniforms.length;
+
+		const types = new Uint8Array( count );
+		const offsets = new Uint32Array( count );
+		const sources = new Array( count );
+
+		for ( let i = 0; i < count; i ++ ) {
+
+			const uniform = uniforms[ i ];
+
+			let type = UNSUPPORTED;
+
+			if ( uniform.isNumberUniform ) type = NUMBER;
+			else if ( uniform.isVector2Uniform ) type = VECTOR2;
+			else if ( uniform.isVector3Uniform ) type = VECTOR3;
+			else if ( uniform.isVector4Uniform ) type = VECTOR4;
+			else if ( uniform.isColorUniform ) type = COLOR;
+			else if ( uniform.isMatrix3Uniform ) type = MATRIX3;
+			else if ( uniform.isMatrix4Uniform ) type = MATRIX4;
+
+			// the index is used for update ranges and must match the uniform's index
+
+			if ( uniform.index !== i ) type = UNSUPPORTED;
+
+			types[ i ] = type;
+			offsets[ i ] = uniform.offset;
+
+			// node uniform wrappers return `nodeUniform.value` from getValue()
+
+			const nodeUniform = uniform.nodeUniform;
+			sources[ i ] = ( nodeUniform !== undefined && nodeUniform !== null && nodeUniform.isNodeUniform === true ) ? nodeUniform : null;
+
+		}
+
+		this._updatePlan = { types, offsets, sources };
+
+		return this._updatePlan;
 
 	}
 
@@ -309,24 +448,34 @@ class UniformsGroup extends UniformBuffer {
 	 */
 	updateNumber( uniform ) {
 
-		let updated = false;
+		return this._updateNumber( this.values, uniform, uniform.index, uniform.offset, uniform.getValue() );
 
-		const a = this.values;
-		const v = uniform.getValue();
-		const offset = uniform.offset;
+	}
+
+	/**
+	 * @private
+	 * @param {Array<number>} a - The raw uniform values.
+	 * @param {Uniform} uniform - The uniform.
+	 * @param {number} index - The uniform index.
+	 * @param {number} offset - The uniform offset.
+	 * @param {number} v - The uniform value.
+	 * @return {boolean} Whether the uniform has been updated or not.
+	 */
+	_updateNumber( a, uniform, index, offset, v ) {
 
 		if ( a[ offset ] !== v ) {
 
 			const b = this._getBufferForType( uniform.getType() );
 
 			b[ offset ] = a[ offset ] = v;
-			updated = true;
 
-			this.addUniformUpdateRange( uniform );
+			this._addRange( index, offset, 1 );
+
+			return true;
 
 		}
 
-		return updated;
+		return false;
 
 	}
 
@@ -338,11 +487,20 @@ class UniformsGroup extends UniformBuffer {
 	 */
 	updateVector2( uniform ) {
 
-		let updated = false;
+		return this._updateVector2( this.values, uniform, uniform.index, uniform.offset, uniform.getValue() );
 
-		const a = this.values;
-		const v = uniform.getValue();
-		const offset = uniform.offset;
+	}
+
+	/**
+	 * @private
+	 * @param {Array<number>} a - The raw uniform values.
+	 * @param {Uniform} uniform - The uniform.
+	 * @param {number} index - The uniform index.
+	 * @param {number} offset - The uniform offset.
+	 * @param {Object} v - The uniform value.
+	 * @return {boolean} Whether the uniform has been updated or not.
+	 */
+	_updateVector2( a, uniform, index, offset, v ) {
 
 		if ( a[ offset + 0 ] !== v.x || a[ offset + 1 ] !== v.y ) {
 
@@ -351,13 +509,13 @@ class UniformsGroup extends UniformBuffer {
 			b[ offset + 0 ] = a[ offset + 0 ] = v.x;
 			b[ offset + 1 ] = a[ offset + 1 ] = v.y;
 
-			updated = true;
+			this._addRange( index, offset, 2 );
 
-			this.addUniformUpdateRange( uniform );
+			return true;
 
 		}
 
-		return updated;
+		return false;
 
 	}
 
@@ -369,11 +527,20 @@ class UniformsGroup extends UniformBuffer {
 	 */
 	updateVector3( uniform ) {
 
-		let updated = false;
+		return this._updateVector3( this.values, uniform, uniform.index, uniform.offset, uniform.getValue() );
 
-		const a = this.values;
-		const v = uniform.getValue();
-		const offset = uniform.offset;
+	}
+
+	/**
+	 * @private
+	 * @param {Array<number>} a - The raw uniform values.
+	 * @param {Uniform} uniform - The uniform.
+	 * @param {number} index - The uniform index.
+	 * @param {number} offset - The uniform offset.
+	 * @param {Object} v - The uniform value.
+	 * @return {boolean} Whether the uniform has been updated or not.
+	 */
+	_updateVector3( a, uniform, index, offset, v ) {
 
 		if ( a[ offset + 0 ] !== v.x || a[ offset + 1 ] !== v.y || a[ offset + 2 ] !== v.z ) {
 
@@ -383,13 +550,13 @@ class UniformsGroup extends UniformBuffer {
 			b[ offset + 1 ] = a[ offset + 1 ] = v.y;
 			b[ offset + 2 ] = a[ offset + 2 ] = v.z;
 
-			updated = true;
+			this._addRange( index, offset, 3 );
 
-			this.addUniformUpdateRange( uniform );
+			return true;
 
 		}
 
-		return updated;
+		return false;
 
 	}
 
@@ -401,11 +568,20 @@ class UniformsGroup extends UniformBuffer {
 	 */
 	updateVector4( uniform ) {
 
-		let updated = false;
+		return this._updateVector4( this.values, uniform, uniform.index, uniform.offset, uniform.getValue() );
 
-		const a = this.values;
-		const v = uniform.getValue();
-		const offset = uniform.offset;
+	}
+
+	/**
+	 * @private
+	 * @param {Array<number>} a - The raw uniform values.
+	 * @param {Uniform} uniform - The uniform.
+	 * @param {number} index - The uniform index.
+	 * @param {number} offset - The uniform offset.
+	 * @param {Object} v - The uniform value.
+	 * @return {boolean} Whether the uniform has been updated or not.
+	 */
+	_updateVector4( a, uniform, index, offset, v ) {
 
 		if ( a[ offset + 0 ] !== v.x || a[ offset + 1 ] !== v.y || a[ offset + 2 ] !== v.z || a[ offset + 3 ] !== v.w ) {
 
@@ -416,13 +592,13 @@ class UniformsGroup extends UniformBuffer {
 			b[ offset + 2 ] = a[ offset + 2 ] = v.z;
 			b[ offset + 3 ] = a[ offset + 3 ] = v.w;
 
-			updated = true;
+			this._addRange( index, offset, 4 );
 
-			this.addUniformUpdateRange( uniform );
+			return true;
 
 		}
 
-		return updated;
+		return false;
 
 	}
 
@@ -434,11 +610,19 @@ class UniformsGroup extends UniformBuffer {
 	 */
 	updateColor( uniform ) {
 
-		let updated = false;
+		return this._updateColor( this.values, uniform.index, uniform.offset, uniform.getValue() );
 
-		const a = this.values;
-		const c = uniform.getValue();
-		const offset = uniform.offset;
+	}
+
+	/**
+	 * @private
+	 * @param {Array<number>} a - The raw uniform values.
+	 * @param {number} index - The uniform index.
+	 * @param {number} offset - The uniform offset.
+	 * @param {Color} c - The uniform value.
+	 * @return {boolean} Whether the uniform has been updated or not.
+	 */
+	_updateColor( a, index, offset, c ) {
 
 		if ( a[ offset + 0 ] !== c.r || a[ offset + 1 ] !== c.g || a[ offset + 2 ] !== c.b ) {
 
@@ -448,13 +632,13 @@ class UniformsGroup extends UniformBuffer {
 			b[ offset + 1 ] = a[ offset + 1 ] = c.g;
 			b[ offset + 2 ] = a[ offset + 2 ] = c.b;
 
-			updated = true;
+			this._addRange( index, offset, 3 );
 
-			this.addUniformUpdateRange( uniform );
+			return true;
 
 		}
 
-		return updated;
+		return false;
 
 	}
 
@@ -466,11 +650,19 @@ class UniformsGroup extends UniformBuffer {
 	 */
 	updateMatrix3( uniform ) {
 
-		let updated = false;
+		return this._updateMatrix3( this.values, uniform.index, uniform.offset, uniform.getValue().elements );
 
-		const a = this.values;
-		const e = uniform.getValue().elements;
-		const offset = uniform.offset;
+	}
+
+	/**
+	 * @private
+	 * @param {Array<number>} a - The raw uniform values.
+	 * @param {number} index - The uniform index.
+	 * @param {number} offset - The uniform offset.
+	 * @param {Array<number>} e - The matrix elements.
+	 * @return {boolean} Whether the uniform has been updated or not.
+	 */
+	_updateMatrix3( a, index, offset, e ) {
 
 		if ( a[ offset + 0 ] !== e[ 0 ] || a[ offset + 1 ] !== e[ 1 ] || a[ offset + 2 ] !== e[ 2 ] ||
 			a[ offset + 4 ] !== e[ 3 ] || a[ offset + 5 ] !== e[ 4 ] || a[ offset + 6 ] !== e[ 5 ] ||
@@ -488,13 +680,13 @@ class UniformsGroup extends UniformBuffer {
 			b[ offset + 9 ] = a[ offset + 9 ] = e[ 7 ];
 			b[ offset + 10 ] = a[ offset + 10 ] = e[ 8 ];
 
-			updated = true;
+			this._addRange( index, offset, 12 );
 
-			this.addUniformUpdateRange( uniform );
+			return true;
 
 		}
 
-		return updated;
+		return false;
 
 	}
 
@@ -506,24 +698,33 @@ class UniformsGroup extends UniformBuffer {
 	 */
 	updateMatrix4( uniform ) {
 
-		let updated = false;
+		return this._updateMatrix4( this.values, uniform.index, uniform.offset, uniform.getValue().elements );
 
-		const a = this.values;
-		const e = uniform.getValue().elements;
-		const offset = uniform.offset;
+	}
+
+	/**
+	 * @private
+	 * @param {Array<number>} a - The raw uniform values.
+	 * @param {number} index - The uniform index.
+	 * @param {number} offset - The uniform offset.
+	 * @param {Array<number>} e - The matrix elements.
+	 * @return {boolean} Whether the uniform has been updated or not.
+	 */
+	_updateMatrix4( a, index, offset, e ) {
 
 		if ( arraysEqual( a, e, offset ) === false ) {
 
 			const b = this.buffer;
 			b.set( e, offset );
 			setArray( a, e, offset );
-			updated = true;
 
-			this.addUniformUpdateRange( uniform );
+			this._addRange( index, offset, 16 );
+
+			return true;
 
 		}
 
-		return updated;
+		return false;
 
 	}
 
