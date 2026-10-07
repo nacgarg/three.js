@@ -39,6 +39,22 @@ class UniformsGroup extends UniformBuffer {
 		this._values = null;
 
 		/**
+		 * Cached integer views of the buffer, see `_getBufferForType()`.
+		 *
+		 * @private
+		 * @type {?Int32Array}
+		 * @default null
+		 */
+		this._bufferInt32 = null;
+
+		/**
+		 * @private
+		 * @type {?Uint32Array}
+		 * @default null
+		 */
+		this._bufferUint32 = null;
+
+		/**
 		 * An array of uniform objects.
 		 *
 		 * The order of uniforms in this array must match the order of uniforms in the shader.
@@ -235,9 +251,11 @@ class UniformsGroup extends UniformBuffer {
 
 		let updated = false;
 
-		for ( const uniform of this.uniforms ) {
+		const uniforms = this.uniforms;
 
-			if ( this.updateByType( uniform ) === true ) {
+		for ( let i = 0, l = uniforms.length; i < l; i ++ ) {
+
+			if ( this.updateByType( uniforms[ i ] ) === true ) {
 
 				updated = true;
 
@@ -257,6 +275,8 @@ class UniformsGroup extends UniformBuffer {
 		super.release();
 
 		this._values = null;
+		this._bufferInt32 = null;
+		this._bufferUint32 = null;
 
 	}
 
@@ -294,11 +314,10 @@ class UniformsGroup extends UniformBuffer {
 		const a = this.values;
 		const v = uniform.getValue();
 		const offset = uniform.offset;
-		const type = uniform.getType();
 
 		if ( a[ offset ] !== v ) {
 
-			const b = this._getBufferForType( type );
+			const b = this._getBufferForType( uniform.getType() );
 
 			b[ offset ] = a[ offset ] = v;
 			updated = true;
@@ -324,11 +343,10 @@ class UniformsGroup extends UniformBuffer {
 		const a = this.values;
 		const v = uniform.getValue();
 		const offset = uniform.offset;
-		const type = uniform.getType();
 
 		if ( a[ offset + 0 ] !== v.x || a[ offset + 1 ] !== v.y ) {
 
-			const b = this._getBufferForType( type );
+			const b = this._getBufferForType( uniform.getType() );
 
 			b[ offset + 0 ] = a[ offset + 0 ] = v.x;
 			b[ offset + 1 ] = a[ offset + 1 ] = v.y;
@@ -356,11 +374,10 @@ class UniformsGroup extends UniformBuffer {
 		const a = this.values;
 		const v = uniform.getValue();
 		const offset = uniform.offset;
-		const type = uniform.getType();
 
 		if ( a[ offset + 0 ] !== v.x || a[ offset + 1 ] !== v.y || a[ offset + 2 ] !== v.z ) {
 
-			const b = this._getBufferForType( type );
+			const b = this._getBufferForType( uniform.getType() );
 
 			b[ offset + 0 ] = a[ offset + 0 ] = v.x;
 			b[ offset + 1 ] = a[ offset + 1 ] = v.y;
@@ -389,11 +406,10 @@ class UniformsGroup extends UniformBuffer {
 		const a = this.values;
 		const v = uniform.getValue();
 		const offset = uniform.offset;
-		const type = uniform.getType();
 
 		if ( a[ offset + 0 ] !== v.x || a[ offset + 1 ] !== v.y || a[ offset + 2 ] !== v.z || a[ offset + 3 ] !== v.w ) {
 
-			const b = this._getBufferForType( type );
+			const b = this._getBufferForType( uniform.getType() );
 
 			b[ offset + 0 ] = a[ offset + 0 ] = v.x;
 			b[ offset + 1 ] = a[ offset + 1 ] = v.y;
@@ -520,8 +536,26 @@ class UniformsGroup extends UniformBuffer {
 	 */
 	_getBufferForType( type ) {
 
-		if ( type === 'int' || type === 'ivec2' || type === 'ivec3' || type === 'ivec4' ) return new Int32Array( this.buffer.buffer );
-		if ( type === 'uint' || type === 'uvec2' || type === 'uvec3' || type === 'uvec4' ) return new Uint32Array( this.buffer.buffer );
+		if ( type === 'int' || type === 'ivec2' || type === 'ivec3' || type === 'ivec4' ) {
+
+			const buffer = this.buffer.buffer;
+
+			if ( this._bufferInt32 === null || this._bufferInt32.buffer !== buffer ) this._bufferInt32 = new Int32Array( buffer );
+
+			return this._bufferInt32;
+
+		}
+
+		if ( type === 'uint' || type === 'uvec2' || type === 'uvec3' || type === 'uvec4' ) {
+
+			const buffer = this.buffer.buffer;
+
+			if ( this._bufferUint32 === null || this._bufferUint32.buffer !== buffer ) this._bufferUint32 = new Uint32Array( buffer );
+
+			return this._bufferUint32;
+
+		}
+
 		return this.buffer;
 
 	}
