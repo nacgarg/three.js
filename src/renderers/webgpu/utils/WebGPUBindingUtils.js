@@ -214,42 +214,34 @@ class WebGPUBindingUtils {
 			const isTyped = isTypedArray( array );
 			const byteOffsetFactor = isTyped ? 1 : array.BYTES_PER_ELEMENT;
 
-			// Update ranges arrive sorted and non-overlapping which makes
-			// it easy to merge contiguous ranges.
+			// Write a single span from the first to the last dirty element. The CPU array mirrors the
+			// whole GPU buffer, so the clean gaps in between are rewritten with identical data. For
+			// uniform buffers this is cheaper than one writeBuffer() call per non-contiguous range.
 
-			let start = updateRanges[ 0 ].start; // start of the current merged range
+			let start = Infinity;
+			let end = 0;
 
 			for ( let i = 0, l = updateRanges.length; i < l; i ++ ) {
 
 				const range = updateRanges[ i ];
-				const next = updateRanges[ i + 1 ];
 
-				const end = range.start + range.count; // exclusive end of the current range
-
-				// keep merging while the next range is contiguous
-
-				if ( next !== undefined && next.start === end ) continue;
-
-				// write the merged range
-
-				const dataOffset = start * byteOffsetFactor;
-				const size = ( end - start ) * byteOffsetFactor;
-
-				const bufferOffset = dataOffset * ( isTyped ? array.BYTES_PER_ELEMENT : 1 ); // bufferOffset is always in bytes
-
-				device.queue.writeBuffer(
-					buffer,
-					bufferOffset,
-					array,
-					dataOffset,
-					size
-				);
-
-				// start next if possible
-
-				if ( next !== undefined ) start = next.start;
+				if ( range.start < start ) start = range.start;
+				if ( range.start + range.count > end ) end = range.start + range.count;
 
 			}
+
+			const dataOffset = start * byteOffsetFactor;
+			const size = ( end - start ) * byteOffsetFactor;
+
+			const bufferOffset = dataOffset * ( isTyped ? array.BYTES_PER_ELEMENT : 1 ); // bufferOffset is always in bytes
+
+			device.queue.writeBuffer(
+				buffer,
+				bufferOffset,
+				array,
+				dataOffset,
+				size
+			);
 
 		}
 
