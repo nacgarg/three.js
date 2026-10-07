@@ -164,7 +164,7 @@ class Pipelines extends DataMap {
 
 		const data = this.get( renderObject );
 
-		if ( this._needsRenderUpdate( renderObject ) ) {
+		if ( this._needsRenderUpdate( renderObject, data ) ) {
 
 			const previousPipeline = data.pipeline;
 
@@ -485,11 +485,10 @@ class Pipelines extends DataMap {
 	 *
 	 * @private
 	 * @param {RenderObject} renderObject - The render object.
+	 * @param {Object} [data] - The render object data, if already retrieved.
 	 * @return {boolean} Whether the render object for the given render object requires an update or not.
 	 */
-	_needsRenderUpdate( renderObject ) {
-
-		const data = this.get( renderObject );
+	_needsRenderUpdate( renderObject, data = this.get( renderObject ) ) {
 
 		return data.pipeline === undefined || this.backend.needsRenderUpdate( renderObject );
 
