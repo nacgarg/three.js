@@ -30459,6 +30459,8 @@ class ChainMap {
 
 let _id$a = 0;
 const _protoKeysCache = new WeakMap();
+const _hashValues2 = [ 0, 0 ];
+const _hashValues3 = [ 0, 0, 0 ];
 
 function getKeys( obj ) {
 
@@ -30645,6 +30647,16 @@ class RenderObject {
 		 * @default null
 		 */
 		this.attributesId = null;
+
+		/**
+		 * The keys of `attributesId` as an array, so the per-render geometry check
+		 * does not need to enumerate an object.
+		 *
+		 * @private
+		 * @type {?Array<string>}
+		 * @default null
+		 */
+		this._attributesIdNames = null;
 
 		/**
 		 * A reference to a render pipeline the render
@@ -30991,6 +31003,7 @@ class RenderObject {
 		const vertexBuffers = new Set();
 
 		const attributesId = {};
+		const attributesIdNames = [];
 
 		for ( const nodeAttribute of nodeAttributes ) {
 
@@ -31018,6 +31031,8 @@ class RenderObject {
 
 					}
 
+					attributesIdNames.push( nodeAttribute.name );
+
 				}
 
 			}
@@ -31033,6 +31048,7 @@ class RenderObject {
 
 		this.attributes = attributes;
 		this.attributesId = attributesId;
+		this._attributesIdNames = attributesIdNames;
 		this.vertexBuffers = Array.from( vertexBuffers.values() );
 
 		return attributes;
@@ -31329,10 +31345,13 @@ class RenderObject {
 		if ( this.attributes !== null ) {
 
 			const attributesId = this.attributesId;
+			const names = this._attributesIdNames;
+			const geometry = this.geometry;
 
-			for ( const name in attributesId ) {
+			for ( let i = 0, l = names.length; i < l; i ++ ) {
 
-				const attribute = this.geometry.getAttribute( name );
+				const name = names[ i ];
+				const attribute = geometry.getAttribute( name );
 
 				if ( attribute === undefined ) return true;
 
@@ -31395,17 +31414,27 @@ class RenderObject {
 
 		if ( this.camera.isArrayCamera ) {
 
-			cacheKey = hash$1( cacheKey, this.camera.cameras.length );
+			_hashValues2[ 0 ] = cacheKey;
+			_hashValues2[ 1 ] = this.camera.cameras.length;
+
+			cacheKey = hashArray( _hashValues2 );
 
 		}
 
 		if ( this.object.receiveShadow ) {
 
-			cacheKey = hash$1( cacheKey, 1 );
+			_hashValues2[ 0 ] = cacheKey;
+			_hashValues2[ 1 ] = 1;
+
+			cacheKey = hashArray( _hashValues2 );
 
 		}
 
-		cacheKey = hash$1( cacheKey, this.renderer.contextNode.id, this.renderer.contextNode.version );
+		_hashValues3[ 0 ] = cacheKey;
+		_hashValues3[ 1 ] = this.renderer.contextNode.id;
+		_hashValues3[ 2 ] = this.renderer.contextNode.version;
+
+		cacheKey = hashArray( _hashValues3 );
 
 		return cacheKey;
 
@@ -33194,7 +33223,7 @@ class Pipelines extends DataMap {
 
 		const data = this.get( renderObject );
 
-		if ( this._needsRenderUpdate( renderObject ) ) {
+		if ( this._needsRenderUpdate( renderObject, data ) ) {
 
 			const previousPipeline = data.pipeline;
 
@@ -33515,17 +33544,18 @@ class Pipelines extends DataMap {
 	 *
 	 * @private
 	 * @param {RenderObject} renderObject - The render object.
+	 * @param {Object} [data] - The render object data, if already retrieved.
 	 * @return {boolean} Whether the render object for the given render object requires an update or not.
 	 */
-	_needsRenderUpdate( renderObject ) {
-
-		const data = this.get( renderObject );
+	_needsRenderUpdate( renderObject, data = this.get( renderObject ) ) {
 
 		return data.pipeline === undefined || this.backend.needsRenderUpdate( renderObject );
 
 	}
 
 }
+
+const _updatedBindings = [];
 
 /**
  * This renderer module manages the bindings of the renderer.
@@ -33884,13 +33914,20 @@ class Bindings extends DataMap {
 		const { backend } = this;
 
 		let needsBindingsUpdate = false;
-		let cacheBindings = true;
-		let cacheKey = '';
-		let version = 0;
+
+		// bindings checked in this call. The bind group cache key is only derived from them when a new
+		// bind group is required, so the common (unchanged) case does no string building or extra lookups.
+		// The array is used as a stack since _update() may re-enter through texture updates.
+
+		const updatedBindings = _updatedBindings;
+		const firstUpdated = updatedBindings.length;
+		const groupBindings = bindGroup.bindings;
 
 		// iterate over all bindings and check if buffer updates or a new binding group is required
 
-		for ( const binding of bindGroup.bindings ) {
+		for ( let i = 0, l = groupBindings.length; i < l; i ++ ) {
+
+			const binding = groupBindings[ i ];
 
 			const updatedGroup = this.nodes.updateGroup( binding );
 
@@ -33898,6 +33935,8 @@ class Bindings extends DataMap {
 			// we move one with the next binding. Otherwise the next if block will update the group.
 
 			if ( updatedGroup === false ) continue;
+
+			updatedBindings.push( binding );
 
 			//
 
@@ -33918,8 +33957,6 @@ class Bindings extends DataMap {
 
 				}
 
-				cacheKey += attribute.id + ',';
-
 			}
 
 			if ( binding.isUniformBuffer ) {
@@ -33939,9 +33976,10 @@ class Bindings extends DataMap {
 				// get the texture data after the update, to sync the texture reference from node
 
 				const texture = binding.texture;
-				const texturesTextureData = this.textures.get( texture );
 
 				if ( updated ) {
+
+					const texturesTextureData = this.textures.get( texture );
 
 					// version: update the texture data or create a new one
 
@@ -33960,19 +33998,6 @@ class Bindings extends DataMap {
 					// keep track which bind groups refer to the current texture (this is needed for dispose)
 
 					texturesTextureData.bindGroups.add( bindGroup );
-
-				}
-
-				const textureData = backend.get( texture );
-
-				if ( textureData.externalTexture !== undefined || texturesTextureData.isDefaultTexture ) {
-
-					cacheBindings = false;
-
-				} else {
-
-					cacheKey += texture.id + ',';
-					version += texture.version;
 
 				}
 
@@ -34024,7 +34049,47 @@ class Bindings extends DataMap {
 
 		if ( needsBindingsUpdate === true ) {
 
+			let cacheBindings = true;
+			let cacheKey = '';
+			let version = 0;
+
+			for ( let i = firstUpdated, l = updatedBindings.length; i < l; i ++ ) {
+
+				const binding = updatedBindings[ i ];
+
+				if ( binding.isStorageBuffer ) {
+
+					cacheKey += binding.attribute.id + ',';
+
+				}
+
+				if ( binding.isUniformBuffer !== true && binding.isSampledTexture ) {
+
+					const texture = binding.texture;
+					const textureData = backend.get( texture );
+
+					if ( textureData.externalTexture !== undefined || this.textures.get( texture ).isDefaultTexture ) {
+
+						cacheBindings = false;
+
+					} else {
+
+						cacheKey += texture.id + ',';
+						version += texture.version;
+
+					}
+
+				}
+
+			}
+
+			updatedBindings.length = firstUpdated;
+
 			this.backend.updateBindings( bindGroup, bindings, cacheBindings ? cacheKey : '', version );
+
+		} else {
+
+			updatedBindings.length = firstUpdated;
 
 		}
 
@@ -58481,13 +58546,13 @@ class NodeManager extends DataMap {
 	 */
 	updateBefore( renderObject ) {
 
-		const nodeBuilder = renderObject.getNodeBuilderState();
+		const nodes = renderObject.getNodeBuilderState().updateBeforeNodes;
 
-		for ( const node of nodeBuilder.updateBeforeNodes ) {
+		for ( let i = 0, l = nodes.length; i < l; i ++ ) {
 
-			// update frame state for each node
+			// update frame state for each node (a node may render, which changes the shared frame state)
 
-			this.getNodeFrameForRender( renderObject ).updateBeforeNode( node );
+			this.getNodeFrameForRender( renderObject ).updateBeforeNode( nodes[ i ] );
 
 		}
 
@@ -58501,13 +58566,13 @@ class NodeManager extends DataMap {
 	 */
 	updateAfter( renderObject ) {
 
-		const nodeBuilder = renderObject.getNodeBuilderState();
+		const nodes = renderObject.getNodeBuilderState().updateAfterNodes;
 
-		for ( const node of nodeBuilder.updateAfterNodes ) {
+		for ( let i = 0, l = nodes.length; i < l; i ++ ) {
 
-			// update frame state for each node
+			// update frame state for each node (a node may render, which changes the shared frame state)
 
-			this.getNodeFrameForRender( renderObject ).updateAfterNode( node );
+			this.getNodeFrameForRender( renderObject ).updateAfterNode( nodes[ i ] );
 
 		}
 
@@ -58581,11 +58646,11 @@ class NodeManager extends DataMap {
 	updateForRender( renderObject ) {
 
 		const nodeFrame = this.getNodeFrameForRender( renderObject );
-		const nodeBuilder = renderObject.getNodeBuilderState();
+		const nodes = renderObject.getNodeBuilderState().updateNodes;
 
-		for ( const node of nodeBuilder.updateNodes ) {
+		for ( let i = 0, l = nodes.length; i < l; i ++ ) {
 
-			nodeFrame.updateNode( node );
+			nodeFrame.updateNode( nodes[ i ] );
 
 		}
 
@@ -66050,6 +66115,22 @@ class UniformsGroup extends UniformBuffer {
 		this._values = null;
 
 		/**
+		 * Cached integer views of the buffer, see `_getBufferForType()`.
+		 *
+		 * @private
+		 * @type {?Int32Array}
+		 * @default null
+		 */
+		this._bufferInt32 = null;
+
+		/**
+		 * @private
+		 * @type {?Uint32Array}
+		 * @default null
+		 */
+		this._bufferUint32 = null;
+
+		/**
 		 * An array of uniform objects.
 		 *
 		 * The order of uniforms in this array must match the order of uniforms in the shader.
@@ -66246,9 +66327,11 @@ class UniformsGroup extends UniformBuffer {
 
 		let updated = false;
 
-		for ( const uniform of this.uniforms ) {
+		const uniforms = this.uniforms;
 
-			if ( this.updateByType( uniform ) === true ) {
+		for ( let i = 0, l = uniforms.length; i < l; i ++ ) {
+
+			if ( this.updateByType( uniforms[ i ] ) === true ) {
 
 				updated = true;
 
@@ -66268,6 +66351,8 @@ class UniformsGroup extends UniformBuffer {
 		super.release();
 
 		this._values = null;
+		this._bufferInt32 = null;
+		this._bufferUint32 = null;
 
 	}
 
@@ -66305,11 +66390,10 @@ class UniformsGroup extends UniformBuffer {
 		const a = this.values;
 		const v = uniform.getValue();
 		const offset = uniform.offset;
-		const type = uniform.getType();
 
 		if ( a[ offset ] !== v ) {
 
-			const b = this._getBufferForType( type );
+			const b = this._getBufferForType( uniform.getType() );
 
 			b[ offset ] = a[ offset ] = v;
 			updated = true;
@@ -66335,11 +66419,10 @@ class UniformsGroup extends UniformBuffer {
 		const a = this.values;
 		const v = uniform.getValue();
 		const offset = uniform.offset;
-		const type = uniform.getType();
 
 		if ( a[ offset + 0 ] !== v.x || a[ offset + 1 ] !== v.y ) {
 
-			const b = this._getBufferForType( type );
+			const b = this._getBufferForType( uniform.getType() );
 
 			b[ offset + 0 ] = a[ offset + 0 ] = v.x;
 			b[ offset + 1 ] = a[ offset + 1 ] = v.y;
@@ -66367,11 +66450,10 @@ class UniformsGroup extends UniformBuffer {
 		const a = this.values;
 		const v = uniform.getValue();
 		const offset = uniform.offset;
-		const type = uniform.getType();
 
 		if ( a[ offset + 0 ] !== v.x || a[ offset + 1 ] !== v.y || a[ offset + 2 ] !== v.z ) {
 
-			const b = this._getBufferForType( type );
+			const b = this._getBufferForType( uniform.getType() );
 
 			b[ offset + 0 ] = a[ offset + 0 ] = v.x;
 			b[ offset + 1 ] = a[ offset + 1 ] = v.y;
@@ -66400,11 +66482,10 @@ class UniformsGroup extends UniformBuffer {
 		const a = this.values;
 		const v = uniform.getValue();
 		const offset = uniform.offset;
-		const type = uniform.getType();
 
 		if ( a[ offset + 0 ] !== v.x || a[ offset + 1 ] !== v.y || a[ offset + 2 ] !== v.z || a[ offset + 3 ] !== v.w ) {
 
-			const b = this._getBufferForType( type );
+			const b = this._getBufferForType( uniform.getType() );
 
 			b[ offset + 0 ] = a[ offset + 0 ] = v.x;
 			b[ offset + 1 ] = a[ offset + 1 ] = v.y;
@@ -66531,8 +66612,26 @@ class UniformsGroup extends UniformBuffer {
 	 */
 	_getBufferForType( type ) {
 
-		if ( type === 'int' || type === 'ivec2' || type === 'ivec3' || type === 'ivec4' ) return new Int32Array( this.buffer.buffer );
-		if ( type === 'uint' || type === 'uvec2' || type === 'uvec3' || type === 'uvec4' ) return new Uint32Array( this.buffer.buffer );
+		if ( type === 'int' || type === 'ivec2' || type === 'ivec3' || type === 'ivec4' ) {
+
+			const buffer = this.buffer.buffer;
+
+			if ( this._bufferInt32 === null || this._bufferInt32.buffer !== buffer ) this._bufferInt32 = new Int32Array( buffer );
+
+			return this._bufferInt32;
+
+		}
+
+		if ( type === 'uint' || type === 'uvec2' || type === 'uvec3' || type === 'uvec4' ) {
+
+			const buffer = this.buffer.buffer;
+
+			if ( this._bufferUint32 === null || this._bufferUint32.buffer !== buffer ) this._bufferUint32 = new Uint32Array( buffer );
+
+			return this._bufferUint32;
+
+		}
+
 		return this.buffer;
 
 	}
@@ -84878,42 +84977,34 @@ class WebGPUBindingUtils {
 			const isTyped = isTypedArray( array );
 			const byteOffsetFactor = isTyped ? 1 : array.BYTES_PER_ELEMENT;
 
-			// Update ranges arrive sorted and non-overlapping which makes
-			// it easy to merge contiguous ranges.
+			// Write a single span from the first to the last dirty element. The CPU array mirrors the
+			// whole GPU buffer, so the clean gaps in between are rewritten with identical data. For
+			// uniform buffers this is cheaper than one writeBuffer() call per non-contiguous range.
 
-			let start = updateRanges[ 0 ].start; // start of the current merged range
+			let start = Infinity;
+			let end = 0;
 
 			for ( let i = 0, l = updateRanges.length; i < l; i ++ ) {
 
 				const range = updateRanges[ i ];
-				const next = updateRanges[ i + 1 ];
 
-				const end = range.start + range.count; // exclusive end of the current range
-
-				// keep merging while the next range is contiguous
-
-				if ( next !== undefined && next.start === end ) continue;
-
-				// write the merged range
-
-				const dataOffset = start * byteOffsetFactor;
-				const size = ( end - start ) * byteOffsetFactor;
-
-				const bufferOffset = dataOffset * ( isTyped ? array.BYTES_PER_ELEMENT : 1 ); // bufferOffset is always in bytes
-
-				device.queue.writeBuffer(
-					buffer,
-					bufferOffset,
-					array,
-					dataOffset,
-					size
-				);
-
-				// start next if possible
-
-				if ( next !== undefined ) start = next.start;
+				if ( range.start < start ) start = range.start;
+				if ( range.start + range.count > end ) end = range.start + range.count;
 
 			}
+
+			const dataOffset = start * byteOffsetFactor;
+			const size = ( end - start ) * byteOffsetFactor;
+
+			const bufferOffset = dataOffset * ( isTyped ? array.BYTES_PER_ELEMENT : 1 ); // bufferOffset is always in bytes
+
+			device.queue.writeBuffer(
+				buffer,
+				bufferOffset,
+				array,
+				dataOffset,
+				size
+			);
 
 		}
 
