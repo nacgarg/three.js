@@ -211,9 +211,18 @@ class Bindings extends DataMap {
 	 */
 	deleteForRender( renderObject ) {
 
-		const bindings = renderObject.getBindings();
+		const renderObjectData = this.get( renderObject );
 
-		this._destroyBindings( bindings );
+		// only release the bind groups the render object has acquired via getForRender(). A render object
+		// can be disposed before its first update (e.g. when its material is disposed while it waits for
+		// an async node build). Releasing in that case would decrement the usage count of shared bind
+		// groups that are still in use by other render objects and destroy their uniform buffers.
+
+		if ( renderObjectData.initialized === true ) {
+
+			this._destroyBindings( renderObject.getBindings() );
+
+		}
 
 		this.delete( renderObject );
 

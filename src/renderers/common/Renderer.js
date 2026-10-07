@@ -886,6 +886,10 @@ class Renderer {
 	 * parameter for applying the target scene. Note that the (target) scene's lighting
 	 * and environment must be configured before calling this method.
 	 *
+	 * The compilation uses the current render target and MRT configuration. Like `render()`,
+	 * it is nesting aware: when called during another render (e.g. from a pass right before
+	 * it renders its scene), it prepares the render objects for a render issued at that point.
+	 *
 	 * @async
 	 * @param {Object3D} scene - The scene or 3D object to precompile.
 	 * @param {Camera} camera - The camera that is used to render the scene.
@@ -930,8 +934,12 @@ class Renderer {
 		const outputRenderTarget = this._renderTarget || this._outputRenderTarget;
 		const useXRCamera = this.xr.isPresenting === true && this.isOutputTarget;
 		const renderTarget = useFrameBufferTarget ? this._getFrameBufferTarget() : outputRenderTarget;
-		const renderContext = this._renderContexts.get( renderTarget, this._mrt );
 		const activeMipmapLevel = this._activeMipmapLevel;
+
+		// Match render()'s logic: render contexts are keyed by the call depth. Use the depth a render() call
+		// would use at this point so that a compilation started inside a render (e.g. before a nested pass)
+		// prepares the render objects of that pass, and does not modify the context of an active render.
+		const renderContext = this._renderContexts.get( renderTarget, this._mrt, this._callDepth + 1 );
 
 		const compilationPromises = [];
 
@@ -1053,10 +1061,25 @@ class Renderer {
 		this._compilationPromises = previousCompilationPromises;
 
 		// Process compilation work items sequentially to avoid freezing
-		// Yields between objects to keep animation smooth
+		// Yields between objects to keep animation smooth. Pipelines are created
+		// asynchronously and compile in parallel while the remaining nodes are built.
 
 		const total = compilationPromises.length;
 		let loaded = 0;
+
+		const onCompiled = () => {
+
+			loaded ++;
+
+			if ( onProgress !== null ) {
+
+				onProgress( new ProgressEvent( 'progress', { lengthComputable: true, loaded, total } ) );
+
+			}
+
+		};
+
+		const pendingPipelines = [];
 
 		for ( const item of compilationPromises ) {
 
@@ -1074,24 +1097,21 @@ class Renderer {
 			this._bindings.updateForRender( renderObject );
 			this._isPreCompiling = false;
 
-			// Wait for pipeline creation
+			// Request the pipeline without waiting for it
 			const pipelinePromises = [];
 			this._pipelines.getForRender( renderObject, pipelinePromises );
-			if ( pipelinePromises.length > 0 ) {
-
-				await Promise.all( pipelinePromises );
-
-			}
 
 			this._isPreCompiling = true;
 			this._nodes.updateAfter( renderObject );
 			this._isPreCompiling = false;
 
-			loaded ++;
+			if ( pipelinePromises.length > 0 ) {
 
-			if ( onProgress !== null ) {
+				pendingPipelines.push( Promise.all( pipelinePromises ).then( onCompiled ) );
 
-				onProgress( new ProgressEvent( 'progress', { lengthComputable: true, loaded, total } ) );
+			} else {
+
+				onCompiled();
 
 			}
 
@@ -1099,6 +1119,10 @@ class Renderer {
 			await yieldToMain();
 
 		}
+
+		// Wait for all pipelines
+
+		await Promise.all( pendingPipelines );
 
 	}
 
