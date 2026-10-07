@@ -1027,13 +1027,13 @@ class NodeManager extends DataMap {
 	 */
 	updateBefore( renderObject ) {
 
-		const nodeBuilder = renderObject.getNodeBuilderState();
+		const nodes = renderObject.getNodeBuilderState().updateBeforeNodes;
 
-		for ( const node of nodeBuilder.updateBeforeNodes ) {
+		for ( let i = 0, l = nodes.length; i < l; i ++ ) {
 
-			// update frame state for each node
+			// update frame state for each node (a node may render, which changes the shared frame state)
 
-			this.getNodeFrameForRender( renderObject ).updateBeforeNode( node );
+			this.getNodeFrameForRender( renderObject ).updateBeforeNode( nodes[ i ] );
 
 		}
 
@@ -1047,13 +1047,13 @@ class NodeManager extends DataMap {
 	 */
 	updateAfter( renderObject ) {
 
-		const nodeBuilder = renderObject.getNodeBuilderState();
+		const nodes = renderObject.getNodeBuilderState().updateAfterNodes;
 
-		for ( const node of nodeBuilder.updateAfterNodes ) {
+		for ( let i = 0, l = nodes.length; i < l; i ++ ) {
 
-			// update frame state for each node
+			// update frame state for each node (a node may render, which changes the shared frame state)
 
-			this.getNodeFrameForRender( renderObject ).updateAfterNode( node );
+			this.getNodeFrameForRender( renderObject ).updateAfterNode( nodes[ i ] );
 
 		}
 
@@ -1127,11 +1127,11 @@ class NodeManager extends DataMap {
 	updateForRender( renderObject ) {
 
 		const nodeFrame = this.getNodeFrameForRender( renderObject );
-		const nodeBuilder = renderObject.getNodeBuilderState();
+		const nodes = renderObject.getNodeBuilderState().updateNodes;
 
-		for ( const node of nodeBuilder.updateNodes ) {
+		for ( let i = 0, l = nodes.length; i < l; i ++ ) {
 
-			nodeFrame.updateNode( node );
+			nodeFrame.updateNode( nodes[ i ] );
 
 		}
 
