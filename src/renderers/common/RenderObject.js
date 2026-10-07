@@ -1,7 +1,9 @@
-import { hash, hashString } from '../../nodes/core/NodeUtils.js';
+import { hashArray, hashString } from '../../nodes/core/NodeUtils.js';
 
 let _id = 0;
 const _protoKeysCache = new WeakMap();
+const _hashValues2 = [ 0, 0 ];
+const _hashValues3 = [ 0, 0, 0 ];
 
 function getKeys( obj ) {
 
@@ -188,6 +190,16 @@ class RenderObject {
 		 * @default null
 		 */
 		this.attributesId = null;
+
+		/**
+		 * The keys of `attributesId` as an array, so the per-render geometry check
+		 * does not need to enumerate an object.
+		 *
+		 * @private
+		 * @type {?Array<string>}
+		 * @default null
+		 */
+		this._attributesIdNames = null;
 
 		/**
 		 * A reference to a render pipeline the render
@@ -534,6 +546,7 @@ class RenderObject {
 		const vertexBuffers = new Set();
 
 		const attributesId = {};
+		const attributesIdNames = [];
 
 		for ( const nodeAttribute of nodeAttributes ) {
 
@@ -561,6 +574,8 @@ class RenderObject {
 
 					}
 
+					attributesIdNames.push( nodeAttribute.name );
+
 				}
 
 			}
@@ -576,6 +591,7 @@ class RenderObject {
 
 		this.attributes = attributes;
 		this.attributesId = attributesId;
+		this._attributesIdNames = attributesIdNames;
 		this.vertexBuffers = Array.from( vertexBuffers.values() );
 
 		return attributes;
@@ -872,10 +888,13 @@ class RenderObject {
 		if ( this.attributes !== null ) {
 
 			const attributesId = this.attributesId;
+			const names = this._attributesIdNames;
+			const geometry = this.geometry;
 
-			for ( const name in attributesId ) {
+			for ( let i = 0, l = names.length; i < l; i ++ ) {
 
-				const attribute = this.geometry.getAttribute( name );
+				const name = names[ i ];
+				const attribute = geometry.getAttribute( name );
 
 				if ( attribute === undefined ) return true;
 
@@ -938,17 +957,27 @@ class RenderObject {
 
 		if ( this.camera.isArrayCamera ) {
 
-			cacheKey = hash( cacheKey, this.camera.cameras.length );
+			_hashValues2[ 0 ] = cacheKey;
+			_hashValues2[ 1 ] = this.camera.cameras.length;
+
+			cacheKey = hashArray( _hashValues2 );
 
 		}
 
 		if ( this.object.receiveShadow ) {
 
-			cacheKey = hash( cacheKey, 1 );
+			_hashValues2[ 0 ] = cacheKey;
+			_hashValues2[ 1 ] = 1;
+
+			cacheKey = hashArray( _hashValues2 );
 
 		}
 
-		cacheKey = hash( cacheKey, this.renderer.contextNode.id, this.renderer.contextNode.version );
+		_hashValues3[ 0 ] = cacheKey;
+		_hashValues3[ 1 ] = this.renderer.contextNode.id;
+		_hashValues3[ 2 ] = this.renderer.contextNode.version;
+
+		cacheKey = hashArray( _hashValues3 );
 
 		return cacheKey;
 
