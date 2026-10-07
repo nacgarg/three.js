@@ -1,6 +1,8 @@
 import DataMap from './DataMap.js';
 import { AttributeType } from './Constants.js';
 
+const _updatedBindings = [];
+
 /**
  * This renderer module manages the bindings of the renderer.
  *
@@ -358,13 +360,20 @@ class Bindings extends DataMap {
 		const { backend } = this;
 
 		let needsBindingsUpdate = false;
-		let cacheBindings = true;
-		let cacheKey = '';
-		let version = 0;
+
+		// bindings checked in this call. The bind group cache key is only derived from them when a new
+		// bind group is required, so the common (unchanged) case does no string building or extra lookups.
+		// The array is used as a stack since _update() may re-enter through texture updates.
+
+		const updatedBindings = _updatedBindings;
+		const firstUpdated = updatedBindings.length;
+		const groupBindings = bindGroup.bindings;
 
 		// iterate over all bindings and check if buffer updates or a new binding group is required
 
-		for ( const binding of bindGroup.bindings ) {
+		for ( let i = 0, l = groupBindings.length; i < l; i ++ ) {
+
+			const binding = groupBindings[ i ];
 
 			const updatedGroup = this.nodes.updateGroup( binding );
 
@@ -372,6 +381,8 @@ class Bindings extends DataMap {
 			// we move one with the next binding. Otherwise the next if block will update the group.
 
 			if ( updatedGroup === false ) continue;
+
+			updatedBindings.push( binding );
 
 			//
 
@@ -392,8 +403,6 @@ class Bindings extends DataMap {
 
 				}
 
-				cacheKey += attribute.id + ',';
-
 			}
 
 			if ( binding.isUniformBuffer ) {
@@ -413,9 +422,10 @@ class Bindings extends DataMap {
 				// get the texture data after the update, to sync the texture reference from node
 
 				const texture = binding.texture;
-				const texturesTextureData = this.textures.get( texture );
 
 				if ( updated ) {
+
+					const texturesTextureData = this.textures.get( texture );
 
 					// version: update the texture data or create a new one
 
@@ -434,19 +444,6 @@ class Bindings extends DataMap {
 					// keep track which bind groups refer to the current texture (this is needed for dispose)
 
 					texturesTextureData.bindGroups.add( bindGroup );
-
-				}
-
-				const textureData = backend.get( texture );
-
-				if ( textureData.externalTexture !== undefined || texturesTextureData.isDefaultTexture ) {
-
-					cacheBindings = false;
-
-				} else {
-
-					cacheKey += texture.id + ',';
-					version += texture.version;
 
 				}
 
@@ -498,7 +495,47 @@ class Bindings extends DataMap {
 
 		if ( needsBindingsUpdate === true ) {
 
+			let cacheBindings = true;
+			let cacheKey = '';
+			let version = 0;
+
+			for ( let i = firstUpdated, l = updatedBindings.length; i < l; i ++ ) {
+
+				const binding = updatedBindings[ i ];
+
+				if ( binding.isStorageBuffer ) {
+
+					cacheKey += binding.attribute.id + ',';
+
+				}
+
+				if ( binding.isUniformBuffer !== true && binding.isSampledTexture ) {
+
+					const texture = binding.texture;
+					const textureData = backend.get( texture );
+
+					if ( textureData.externalTexture !== undefined || this.textures.get( texture ).isDefaultTexture ) {
+
+						cacheBindings = false;
+
+					} else {
+
+						cacheKey += texture.id + ',';
+						version += texture.version;
+
+					}
+
+				}
+
+			}
+
+			updatedBindings.length = firstUpdated;
+
 			this.backend.updateBindings( bindGroup, bindings, cacheBindings ? cacheKey : '', version );
+
+		} else {
+
+			updatedBindings.length = firstUpdated;
 
 		}
 
