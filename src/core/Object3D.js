@@ -387,6 +387,32 @@ class Object3D extends EventDispatcher {
 		 */
 		this.pivot = null;
 
+		/**
+		 * When set to `true`, {@link Object3D#updateMatrixWorld} and {@link Object3D#updateWorldMatrix}
+		 * only recompose the local matrix when {@link Object3D#position}, {@link Object3D#quaternion},
+		 * {@link Object3D#scale} or {@link Object3D#pivot} changed since the last call of
+		 * {@link Object3D#updateMatrix}, and only recompute the world matrix when the local matrix changed,
+		 * the parent's world matrix changed (or the parent was replaced), {@link Object3D#matrixWorldNeedsUpdate}
+		 * is set, or an update is forced. Unchanged subtrees are then not recomputed every frame.
+		 *
+		 * With change tracking enabled, code that writes to {@link Object3D#matrix} or
+		 * {@link Object3D#matrixWorld} directly must set {@link Object3D#matrixWorldNeedsUpdate} to `true`.
+		 *
+		 * The default values for all 3D objects is defined by `Object3D.DEFAULT_MATRIX_CHANGE_TRACKING`.
+		 *
+		 * @type {boolean}
+		 * @default false
+		 */
+		this.matrixChangeTracking = Object3D.DEFAULT_MATRIX_CHANGE_TRACKING;
+
+		// change tracking state: transform inputs of the last updateMatrix() (position, quaternion, scale, pivot),
+		// a counter bumped whenever the world matrix is recomputed, and the parent / parent counter it was computed from
+
+		this._matrixInputs = null;
+		this._matrixWorldVersion = 0;
+		this._matrixWorldParent = null;
+		this._matrixWorldParentVersion = - 1;
+
 	}
 
 	/**
@@ -1160,6 +1186,8 @@ class Object3D extends EventDispatcher {
 
 		this.matrixWorldNeedsUpdate = true;
 
+		if ( this.matrixChangeTracking === true ) this._storeMatrixInputs();
+
 	}
 
 	/**
@@ -1175,25 +1203,11 @@ class Object3D extends EventDispatcher {
 	 */
 	updateMatrixWorld( force ) {
 
-		if ( this.matrixAutoUpdate ) this.updateMatrix();
+		if ( this.matrixAutoUpdate && ( this.matrixChangeTracking === false || this._matrixInputsChanged() ) ) this.updateMatrix();
 
-		if ( this.matrixWorldNeedsUpdate || force ) {
+		if ( this.matrixWorldNeedsUpdate || force || ( this.matrixChangeTracking === true && this._parentMatrixWorldChanged() ) ) {
 
-			if ( this.matrixWorldAutoUpdate === true ) {
-
-				if ( this.parent === null ) {
-
-					this.matrixWorld.copy( this.matrix );
-
-				} else {
-
-					this.matrixWorld.multiplyMatrices( this.parent.matrixWorld, this.matrix );
-
-				}
-
-			}
-
-			this.matrixWorldNeedsUpdate = false;
+			this._updateMatrixWorldFromParent();
 
 			force = true;
 
@@ -1232,25 +1246,11 @@ class Object3D extends EventDispatcher {
 
 		}
 
-		if ( this.matrixAutoUpdate ) this.updateMatrix();
+		if ( this.matrixAutoUpdate && ( this.matrixChangeTracking === false || this._matrixInputsChanged() ) ) this.updateMatrix();
 
-		if ( this.matrixWorldNeedsUpdate || force ) {
+		if ( this.matrixWorldNeedsUpdate || force || ( this.matrixChangeTracking === true && this._parentMatrixWorldChanged() ) ) {
 
-			if ( this.matrixWorldAutoUpdate === true ) {
-
-				if ( this.parent === null ) {
-
-					this.matrixWorld.copy( this.matrix );
-
-				} else {
-
-					this.matrixWorld.multiplyMatrices( this.parent.matrixWorld, this.matrix );
-
-				}
-
-			}
-
-			this.matrixWorldNeedsUpdate = false;
+			this._updateMatrixWorldFromParent();
 
 			force = true;
 
@@ -1269,6 +1269,110 @@ class Object3D extends EventDispatcher {
 				child.updateWorldMatrix( false, true, force );
 
 			}
+
+		}
+
+	}
+
+	/**
+	 * Recomputes the world matrix from the parent's world matrix and the local matrix
+	 * (if {@link Object3D#matrixWorldAutoUpdate} is `true`), clears {@link Object3D#matrixWorldNeedsUpdate}
+	 * and records the update for change tracking.
+	 *
+	 * @private
+	 */
+	_updateMatrixWorldFromParent() {
+
+		const parent = this.parent;
+
+		if ( this.matrixWorldAutoUpdate === true ) {
+
+			if ( parent === null ) {
+
+				this.matrixWorld.copy( this.matrix );
+
+			} else {
+
+				this.matrixWorld.multiplyMatrices( parent.matrixWorld, this.matrix );
+
+			}
+
+		}
+
+		this.matrixWorldNeedsUpdate = false;
+
+		this._matrixWorldVersion ++;
+		this._matrixWorldParent = parent;
+		this._matrixWorldParentVersion = ( parent !== null ) ? parent._matrixWorldVersion : 0;
+
+	}
+
+	/**
+	 * Returns `true` if the parent was replaced or its world matrix was recomputed since this
+	 * object's world matrix was last computed.
+	 *
+	 * @private
+	 * @return {boolean} Whether the parent's world matrix changed.
+	 */
+	_parentMatrixWorldChanged() {
+
+		const parent = this.parent;
+
+		if ( parent !== this._matrixWorldParent ) return true;
+
+		return parent !== null && parent._matrixWorldVersion !== this._matrixWorldParentVersion;
+
+	}
+
+	/**
+	 * Returns `true` if position, quaternion, scale or pivot differ from the values the local
+	 * matrix was last composed from.
+	 *
+	 * @private
+	 * @return {boolean} Whether the transform inputs changed.
+	 */
+	_matrixInputsChanged() {
+
+		const c = this._matrixInputs;
+
+		if ( c === null ) return true;
+
+		const p = this.position, q = this.quaternion, s = this.scale, pivot = this.pivot;
+
+		if ( p.x !== c[ 0 ] || p.y !== c[ 1 ] || p.z !== c[ 2 ] ) return true;
+		if ( q._x !== c[ 3 ] || q._y !== c[ 4 ] || q._z !== c[ 5 ] || q._w !== c[ 6 ] ) return true;
+		if ( s.x !== c[ 7 ] || s.y !== c[ 8 ] || s.z !== c[ 9 ] ) return true;
+
+		if ( pivot === null ) return c[ 10 ] !== 1;
+
+		return c[ 10 ] !== 0 || pivot.x !== c[ 11 ] || pivot.y !== c[ 12 ] || pivot.z !== c[ 13 ];
+
+	}
+
+	/**
+	 * Stores the transform inputs the local matrix was composed from.
+	 *
+	 * @private
+	 */
+	_storeMatrixInputs() {
+
+		let c = this._matrixInputs;
+
+		if ( c === null ) c = this._matrixInputs = new Float64Array( 14 );
+
+		const p = this.position, q = this.quaternion, s = this.scale, pivot = this.pivot;
+
+		c[ 0 ] = p.x; c[ 1 ] = p.y; c[ 2 ] = p.z;
+		c[ 3 ] = q._x; c[ 4 ] = q._y; c[ 5 ] = q._z; c[ 6 ] = q._w;
+		c[ 7 ] = s.x; c[ 8 ] = s.y; c[ 9 ] = s.z;
+
+		if ( pivot === null ) {
+
+			c[ 10 ] = 1;
+
+		} else {
+
+			c[ 10 ] = 0; c[ 11 ] = pivot.x; c[ 12 ] = pivot.y; c[ 13 ] = pivot.z;
 
 		}
 
@@ -1623,6 +1727,10 @@ class Object3D extends EventDispatcher {
 		this.matrixWorldAutoUpdate = source.matrixWorldAutoUpdate;
 		this.matrixWorldNeedsUpdate = source.matrixWorldNeedsUpdate;
 
+		this.matrixChangeTracking = source.matrixChangeTracking;
+		this._matrixInputs = null;
+		this._matrixWorldParent = null;
+
 		this.layers.mask = source.layers.mask;
 		this.visible = source.visible;
 
@@ -1705,5 +1813,15 @@ Object3D.DEFAULT_MATRIX_AUTO_UPDATE = true;
  * @default true
  */
 Object3D.DEFAULT_MATRIX_WORLD_AUTO_UPDATE = true;
+
+/**
+ * The default setting for {@link Object3D#matrixChangeTracking} for
+ * newly created 3D objects.
+ *
+ * @static
+ * @type {boolean}
+ * @default false
+ */
+Object3D.DEFAULT_MATRIX_CHANGE_TRACKING = false;
 
 export { Object3D };

@@ -886,6 +886,84 @@ export default QUnit.module( 'Core', () => {
 
 		} );
 
+		QUnit.test( 'matrixChangeTracking', ( assert ) => {
+
+			const build = ( tracking ) => {
+
+				const root = new Object3D();
+				const a = new Object3D();
+				const b = new Object3D();
+				const c = new Object3D();
+				const d = new Object3D();
+
+				root.add( a );
+				a.add( b );
+				b.add( c );
+				root.add( d );
+
+				for ( const o of [ root, a, b, c, d ] ) o.matrixChangeTracking = tracking;
+
+				a.position.set( 1, 2, 3 );
+				b.rotation.set( 0.1, 0.2, 0.3 );
+				c.scale.set( 2, 2, 2 );
+				d.matrixAutoUpdate = false;
+				d.position.set( 4, 0, 0 );
+				d.updateMatrix();
+
+				return { root, a, b, c, d };
+
+			};
+
+			const steps = [
+				( s ) => s.a.position.x += 1,
+				( s ) => s.b.quaternion.set( 0, 0, 0, 1 ),
+				() => {}, // nothing changed
+				( s ) => s.c.pivot = new Vector3( 1, 0, 0 ),
+				( s ) => s.d.attach( s.c ), // re-parent
+				( s ) => {
+
+					s.a.position.y += 1;
+					s.a.updateWorldMatrix( true, false ); // world updated without its children
+
+				},
+				( s ) => {
+
+					s.d.matrix.makeTranslation( 0, 5, 0 );
+					s.d.matrixWorldNeedsUpdate = true;
+
+				},
+			];
+
+			const on = build( true ), off = build( false );
+
+			for ( let i = 0; i < steps.length; i ++ ) {
+
+				steps[ i ]( on );
+				steps[ i ]( off );
+
+				on.root.updateMatrixWorld();
+				off.root.updateMatrixWorld();
+
+				for ( const k of [ 'root', 'a', 'b', 'c', 'd' ] ) {
+
+					assert.deepEqual( on[ k ].matrix.elements, off[ k ].matrix.elements, `step ${ i }: ${ k }.matrix` );
+					assert.deepEqual( on[ k ].matrixWorld.elements, off[ k ].matrixWorld.elements, `step ${ i }: ${ k }.matrixWorld` );
+
+				}
+
+			}
+
+			// unchanged objects are not recomputed
+
+			const version = on.c._matrixWorldVersion;
+			on.root.updateMatrixWorld();
+			assert.strictEqual( on.c._matrixWorldVersion, version, 'unchanged subtree keeps its world matrix' );
+
+			on.root.updateMatrixWorld( true );
+			assert.ok( on.c._matrixWorldVersion > version, 'force recomputes' );
+
+		} );
+
 		QUnit.test( 'updateWorldMatrix', ( assert ) => {
 
 			const object = new Object3D();
