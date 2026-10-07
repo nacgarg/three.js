@@ -62788,10 +62788,25 @@ class Renderer {
 		this._compilationPromises = previousCompilationPromises;
 
 		// Process compilation work items sequentially to avoid freezing
-		// Yields between objects to keep animation smooth
+		// Yields between objects to keep animation smooth. Pipelines are created
+		// asynchronously and compile in parallel while the remaining nodes are built.
 
 		const total = compilationPromises.length;
 		let loaded = 0;
+
+		const onCompiled = () => {
+
+			loaded ++;
+
+			if ( onProgress !== null ) {
+
+				onProgress( new ProgressEvent( 'progress', { lengthComputable: true, loaded, total } ) );
+
+			}
+
+		};
+
+		const pendingPipelines = [];
 
 		for ( const item of compilationPromises ) {
 
@@ -62809,24 +62824,21 @@ class Renderer {
 			this._bindings.updateForRender( renderObject );
 			this._isPreCompiling = false;
 
-			// Wait for pipeline creation
+			// Request the pipeline without waiting for it
 			const pipelinePromises = [];
 			this._pipelines.getForRender( renderObject, pipelinePromises );
-			if ( pipelinePromises.length > 0 ) {
-
-				await Promise.all( pipelinePromises );
-
-			}
 
 			this._isPreCompiling = true;
 			this._nodes.updateAfter( renderObject );
 			this._isPreCompiling = false;
 
-			loaded ++;
+			if ( pipelinePromises.length > 0 ) {
 
-			if ( onProgress !== null ) {
+				pendingPipelines.push( Promise.all( pipelinePromises ).then( onCompiled ) );
 
-				onProgress( new ProgressEvent( 'progress', { lengthComputable: true, loaded, total } ) );
+			} else {
+
+				onCompiled();
 
 			}
 
@@ -62834,6 +62846,10 @@ class Renderer {
 			await yieldToMain();
 
 		}
+
+		// Wait for all pipelines
+
+		await Promise.all( pendingPipelines );
 
 	}
 
