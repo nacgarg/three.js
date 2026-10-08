@@ -1925,8 +1925,10 @@ class Renderer {
 			opaque: opaqueObjects
 		} = renderList;
 
-		if ( bundles.length > 0 ) this._renderBundles( bundles, sceneRef, lightsNode );
+		// bundles after the opaque objects (the background is drawn without depth test) and before the transparent ones
+
 		if ( this.opaque === true && opaqueObjects.length > 0 ) this._renderObjects( opaqueObjects, camera, sceneRef, lightsNode );
+		if ( bundles.length > 0 ) this._renderBundles( bundles, sceneRef, lightsNode );
 		if ( this.transparent === true && transparentObjects.length > 0 ) this._renderTransparents( transparentObjects, transparentDoublePassObjects, camera, sceneRef, lightsNode );
 
 		// finish render pass
