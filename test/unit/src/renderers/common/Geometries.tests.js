@@ -55,7 +55,28 @@ export default QUnit.module( 'Renderers', () => {
 				assert.ok( deleted.includes( position ), 'Geometry attribute released.' );
 				assert.ok( deleted.includes( nodeAttribute ), 'Node attribute released.' );
 				assert.strictEqual( info.memory.geometries, 0, 'Geometry count updated.' );
-				assert.strictEqual( geometries._geometryDisposeListeners.size, 0, 'Dispose listener removed.' );
+				assert.strictEqual( geometries._geometryRefs.size, 0, 'Geometry no longer tracked.' );
+
+			} );
+
+			QUnit.test( 'initialized geometries are tracked weakly', ( assert ) => {
+
+				const info = { memory: { geometries: 0 } };
+				const geometries = new Geometries( { delete() {} }, info );
+
+				const geometry = new BufferGeometry();
+				geometry.setAttribute( 'position', new BufferAttribute( new Float32Array( 9 ), 3 ) );
+
+				geometries.initGeometry( { geometry, getAttributes: () => Object.values( geometry.attributes ) } );
+
+				assert.strictEqual( info.memory.geometries, 1, 'Geometry counted.' );
+				assert.strictEqual( geometries._geometryRefs.size, 1, 'Geometry tracked.' );
+				assert.ok( [ ...geometries._geometryRefs ][ 0 ] instanceof WeakRef, 'Geometry referenced weakly.' );
+
+				geometries.dispose();
+
+				assert.strictEqual( geometry.hasEventListener( 'dispose', geometries.get( geometry ).onDispose ), false, 'Dispose listener removed on renderer dispose.' );
+				assert.strictEqual( geometries._geometryRefs.size, 0, 'No geometries tracked after dispose.' );
 
 			} );
 
