@@ -95,6 +95,15 @@ class NodeBuilderState {
 		this.updateAfterNodes = updateAfterNodes;
 
 		/**
+		 * The nodes of {@link NodeBuilderState#updateNodes} that write uniforms of shared groups,
+		 * see {@link NodeManager#updateSharedForRender}. Computed on first use.
+		 *
+		 * @type {?Array<Node>}
+		 * @default null
+		 */
+		this.sharedUpdateNodes = null;
+
+		/**
 		 * A node material observer.
 		 *
 		 * @type {NodeMaterialObserver}

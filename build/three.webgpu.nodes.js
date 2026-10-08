@@ -6,6 +6,75 @@
 import { DynamicDrawUsage, RenderObjectRefreshType, Color, Vector2, Vector3, Vector4, Matrix2, Matrix3, Matrix4, error, UnsignedIntType, IntType, RedFormat, RedIntegerFormat, DepthFormat, DepthStencilFormat, AlphaFormat, RGFormat, RGIntegerFormat, RGBFormat, RGBIntegerFormat, EventDispatcher, MathUtils, warn, WebGLCoordinateSystem, WebGPUCoordinateSystem, ColorManagement, SRGBTransfer, NoToneMapping, StaticDrawUsage, InterleavedBufferAttribute, InterleavedBuffer, NoColorSpace, log as log$1, warnOnce, Texture, Compatibility, LessCompare, LessEqualCompare, GreaterCompare, GreaterEqualCompare, NearestFilter, Sphere, BackSide, DoubleSide, CubeTexture, CubeReflectionMapping, CubeRefractionMapping, TangentSpaceNormalMap, NoNormalPacking, NormalRGPacking, NormalGAPacking, ObjectSpaceNormalMap, RED_GREEN_RGTC2_Format, RG11_EAC_Format, InstancedBufferAttribute, InstancedInterleavedBuffer, DataTexture, RGBAFormat, FloatType, DataArrayTexture, FramebufferTexture, LinearMipmapLinearFilter, DepthTexture, Material, LineBasicMaterial, LineDashedMaterial, NoBlending, MeshNormalMaterial, SRGBColorSpace, RenderTarget, BoxGeometry, Mesh, Scene, LinearFilter, CubeCamera, EquirectangularReflectionMapping, EquirectangularRefractionMapping, AddOperation, MixOperation, MultiplyOperation, MeshBasicMaterial, MeshLambertMaterial, MeshPhongMaterial, HalfFloatType, ClampToEdgeWrapping, BufferGeometry, OrthographicCamera, PerspectiveCamera, LinearSRGBColorSpace, CubeUVReflectionMapping, BufferAttribute, MeshStandardMaterial, MeshPhysicalMaterial, MeshToonMaterial, MeshMatcapMaterial, SpriteMaterial, PointsMaterial, ShadowMaterial, Uint32BufferAttribute, Uint16BufferAttribute, ByteType, UnsignedByteType, ShortType, UnsignedShortType, UnsignedShort4444Type, UnsignedShort5551Type, UnsignedInt248Type, UnsignedInt5999Type, UnsignedInt101111Type, NormalBlending, SrcAlphaFactor, OneMinusSrcAlphaFactor, AddEquation, MaterialBlending, Object3D, LinearMipMapLinearFilter, Plane, Float32BufferAttribute, UVMapping, VSMShadowMap, PCFShadowMap, BasicShadowMap, CubeDepthTexture, SphereGeometry, LinearMipmapNearestFilter, NearestMipmapLinearFilter, Float16BufferAttribute, yieldToMain, REVISION, ArrayCamera, PlaneGeometry, FrontSide, CustomBlending, ZeroFactor, CylinderGeometry, Quaternion, WebXRController, RAD2DEG, PCFSoftShadowMap, FrustumArray, Frustum, RGBAIntegerFormat, TimestampQuery, createCanvasElement, MaxEquation, MinEquation, ReverseSubtractEquation, SubtractEquation, OneMinusConstantAlphaFactor, ConstantAlphaFactor, OneMinusConstantColorFactor, ConstantColorFactor, OneMinusDstAlphaFactor, OneMinusDstColorFactor, OneMinusSrcColorFactor, DstAlphaFactor, DstColorFactor, SrcAlphaSaturateFactor, SrcColorFactor, OneFactor, CullFaceNone, CullFaceBack, CullFaceFront, MultiplyBlending, SubtractiveBlending, AdditiveBlending, NotEqualDepth, GreaterDepth, GreaterEqualDepth, EqualDepth, LessEqualDepth, LessDepth, AlwaysDepth, NeverDepth, ReversedDepthFuncs, RGB_S3TC_DXT1_Format, RGBA_S3TC_DXT1_Format, RGBA_S3TC_DXT3_Format, RGBA_S3TC_DXT5_Format, RGB_PVRTC_4BPPV1_Format, RGB_PVRTC_2BPPV1_Format, RGBA_PVRTC_4BPPV1_Format, RGBA_PVRTC_2BPPV1_Format, RGB_ETC1_Format, RGB_ETC2_Format, RGBA_ETC2_EAC_Format, R11_EAC_Format, SIGNED_R11_EAC_Format, SIGNED_RG11_EAC_Format, RGBA_ASTC_4x4_Format, RGBA_ASTC_5x4_Format, RGBA_ASTC_5x5_Format, RGBA_ASTC_6x5_Format, RGBA_ASTC_6x6_Format, RGBA_ASTC_8x5_Format, RGBA_ASTC_8x6_Format, RGBA_ASTC_8x8_Format, RGBA_ASTC_10x5_Format, RGBA_ASTC_10x6_Format, RGBA_ASTC_10x8_Format, RGBA_ASTC_10x10_Format, RGBA_ASTC_12x10_Format, RGBA_ASTC_12x12_Format, RGBA_BPTC_Format, RGB_BPTC_SIGNED_Format, RGB_BPTC_UNSIGNED_Format, RED_RGTC1_Format, SIGNED_RED_RGTC1_Format, SIGNED_RED_GREEN_RGTC2_Format, MirroredRepeatWrapping, RepeatWrapping, NearestMipmapNearestFilter, NotEqualCompare, EqualCompare, AlwaysCompare, NeverCompare, LinearTransfer, getByteLength, isTypedArray, NotEqualStencilFunc, GreaterStencilFunc, GreaterEqualStencilFunc, EqualStencilFunc, LessEqualStencilFunc, LessStencilFunc, AlwaysStencilFunc, NeverStencilFunc, DecrementWrapStencilOp, IncrementWrapStencilOp, DecrementStencilOp, IncrementStencilOp, InvertStencilOp, ReplaceStencilOp, ZeroStencilOp, KeepStencilOp, SpotLight, PointLight, DirectionalLight, RectAreaLight, AmbientLight, HemisphereLight, LightProbe, LinearToneMapping, ReinhardToneMapping, CineonToneMapping, ACESFilmicToneMapping, AgXToneMapping, NeutralToneMapping, Group, Loader, FileLoader, MaterialLoader, ObjectLoader } from './three.core.js';
 export { AdditiveAnimationBlendMode, AnimationAction, AnimationClip, AnimationLoader, AnimationMixer, AnimationObjectGroup, AnimationUtils, ArcCurve, ArrowHelper, AttachedBindMode, Audio, AudioAnalyser, AudioContext, AudioListener, AudioLoader, AxesHelper, BasicDepthPacking, BatchedMesh, BezierInterpolant, Bone, BooleanKeyframeTrack, Box2, Box3, Box3Helper, BoxHelper, BufferGeometryLoader, Cache, Camera, CameraHelper, CanvasTexture, CapsuleGeometry, CatmullRomCurve3, CircleGeometry, Clock, ColorKeyframeTrack, CompressedArrayTexture, CompressedCubeTexture, CompressedTexture, CompressedTextureLoader, ConeGeometry, Controls, CubeTextureLoader, CubicBezierCurve, CubicBezierCurve3, CubicInterpolant, CullFaceFrontBack, Curve, CurvePath, CustomToneMapping, Cylindrical, Data3DTexture, DataTextureLoader, DataUtils, DefaultLoadingManager, DetachedBindMode, DirectionalLightHelper, DiscreteInterpolant, DodecahedronGeometry, DynamicCopyUsage, DynamicReadUsage, EdgesGeometry, EllipseCurve, Euler, ExternalTexture, ExtrudeGeometry, Fog, FogExp2, GLBufferAttribute, GLSL1, GLSL3, GridHelper, HTMLTexture, HemisphereLightHelper, IcosahedronGeometry, ImageBitmapLoader, ImageLoader, ImageUtils, InstancedBufferGeometry, InstancedMesh, Int16BufferAttribute, Int32BufferAttribute, Int8BufferAttribute, Interpolant, InterpolateBezier, InterpolateDiscrete, InterpolateLinear, InterpolateSmooth, InterpolationSamplingMode, InterpolationSamplingType, KeyframeTrack, LOD, LatheGeometry, Layers, Light, LightShadow, Line, Line3, LineCurve, LineCurve3, LineLoop, LineSegments, LinearInterpolant, LinearMipMapNearestFilter, LoaderUtils, LoadingManager, LoopOnce, LoopPingPong, LoopRepeat, MOUSE, MeshDepthMaterial, MeshDistanceMaterial, NearestMipMapLinearFilter, NearestMipMapNearestFilter, NormalAnimationBlendMode, NumberKeyframeTrack, OctahedronGeometry, Path, PlaneHelper, PointLightHelper, Points, PolarGridHelper, PolyhedronGeometry, PositionalAudio, PropertyBinding, PropertyMixer, QuadraticBezierCurve, QuadraticBezierCurve3, QuaternionKeyframeTrack, QuaternionLinearInterpolant, RGBADepthPacking, RGBDepthPacking, RGDepthPacking, RawShaderMaterial, Ray, Raycaster, RenderTarget3D, RingGeometry, ShaderMaterial, Shape, ShapeGeometry, ShapePath, ShapeUtils, Skeleton, SkeletonHelper, SkinnedMesh, Source, Spherical, SphericalHarmonics3, SplineCurve, SpotLightHelper, Sprite, StaticCopyUsage, StaticReadUsage, StereoCamera, StreamCopyUsage, StreamDrawUsage, StreamReadUsage, StringKeyframeTrack, TOUCH, TetrahedronGeometry, TextureLoader, TextureSource, TextureUtils, Timer, TorusGeometry, TorusKnotGeometry, Triangle, TriangleFanDrawMode, TriangleStripDrawMode, TrianglesDrawMode, TubeGeometry, Uint8BufferAttribute, Uint8ClampedBufferAttribute, Uniform, UniformsGroup, VectorKeyframeTrack, VideoFrameTexture, VideoTexture, WebGL3DRenderTarget, WebGLArrayRenderTarget, WebGLRenderTarget, WireframeGeometry, WrapAroundEnding, ZeroCurvatureEnding, ZeroSlopeEnding, getConsoleFunction, setConsoleFunction } from './three.core.js';
 
+/**
+ * Possible shader stages.
+ *
+ * @property {string} VERTEX The vertex shader stage.
+ * @property {string} FRAGMENT The fragment shader stage.
+ */
+const NodeShaderStage = {
+	VERTEX: 'vertex',
+	FRAGMENT: 'fragment'
+};
+
+/**
+ * Update types of a node.
+ *
+ * @property {string} NONE The update method is not executed.
+ * @property {string} FRAME The update method is executed per frame.
+ * @property {string} RENDER The update method is executed per render. A frame might be produced by multiple render calls so this value allows more detailed updates than FRAME.
+ * @property {string} OBJECT The update method is executed per {@link Object3D} that uses the node for rendering.
+ */
+const NodeUpdateType = {
+	NONE: 'none',
+	FRAME: 'frame',
+	RENDER: 'render',
+	OBJECT: 'object'
+};
+
+/**
+ * Data types of a node.
+ *
+ * @property {string} BOOLEAN Boolean type.
+ * @property {string} INTEGER Integer type.
+ * @property {string} FLOAT Float type.
+ * @property {string} VECTOR2 Two-dimensional vector type.
+ * @property {string} VECTOR3 Three-dimensional vector type.
+ * @property {string} VECTOR4 Four-dimensional vector type.
+ * @property {string} MATRIX2 2x2 matrix type.
+ * @property {string} MATRIX3 3x3 matrix type.
+ * @property {string} MATRIX4 4x4 matrix type.
+ */
+const NodeType = {
+	BOOLEAN: 'bool',
+	INTEGER: 'int',
+	FLOAT: 'float',
+	VECTOR2: 'vec2',
+	VECTOR3: 'vec3',
+	VECTOR4: 'vec4',
+	MATRIX2: 'mat2',
+	MATRIX3: 'mat3',
+	MATRIX4: 'mat4'
+};
+
+/**
+ * Access types of a node. These are relevant for compute and storage usage.
+ *
+ * @property {string} READ_ONLY Read-only access
+ * @property {string} WRITE_ONLY Write-only access.
+ * @property {string} READ_WRITE Read and write access.
+ */
+const NodeAccess = {
+	READ_ONLY: 'readOnly',
+	WRITE_ONLY: 'writeOnly',
+	READ_WRITE: 'readWrite',
+};
+
+const defaultShaderStages = [ 'fragment', 'vertex' ];
+const defaultBuildStages = [ 'setup', 'analyze', 'generate' ];
+const shaderStages = [ ...defaultShaderStages, 'compute' ];
+const vectorComponents = [ 'x', 'y', 'z', 'w' ];
+
 const refreshUniforms = [
 	'alphaMap',
 	'alphaTest',
@@ -164,6 +233,53 @@ class NodeMaterialObserver {
 		 * @default 0
 		 */
 		this.renderId = 0;
+
+		/**
+		 * The object-scope bindings tracked for static content, see {@link NodeMaterialObserver#objectUniformsChanged}.
+		 *
+		 * @private
+		 * @type {?Object}
+		 * @default null
+		 */
+		this.objectUniforms = null;
+
+		/**
+		 * The render ID of the last comparison of the tracked object-scope bindings.
+		 *
+		 * @private
+		 * @type {number}
+		 * @default - 1
+		 */
+		this.objectUniformsRenderId = -1;
+
+		/**
+		 * Incremented when the values of the tracked object-scope bindings change.
+		 *
+		 * @private
+		 * @type {number}
+		 * @default 0
+		 */
+		this.objectUniformsVersion = 0;
+
+		/**
+		 * The render ID of the last update of the nodes updated before rendering, used by
+		 * the renderer when refreshing static render bundles.
+		 *
+		 * @private
+		 * @type {number}
+		 * @default - 1
+		 */
+		this.bundleRenderId = -1;
+
+		/**
+		 * The render ID in which a new version of a tracked texture or storage buffer was detected.
+		 * The renderer uploads it with the next render object of this observer.
+		 *
+		 * @private
+		 * @type {number}
+		 * @default - 1
+		 */
+		this.resourcesRenderId = -1;
 
 	}
 
@@ -484,9 +600,11 @@ class NodeMaterialObserver {
 	 * @param {RenderObject} renderObject - The render object.
 	 * @param {Array<Light>} lightsData - The current material lights.
 	 * @param {number} renderId - The current render ID.
+	 * @param {boolean} [isStatic=false] - Whether the render object belongs to a static render bundle. Then geometry
+	 * attributes and instance buffers are not compared, the renderer uploads them without a full refresh.
 	 * @return {boolean} Whether the given render object is equal to its cached state or not.
 	 */
-	equals( renderObject, lightsData, renderId ) {
+	equals( renderObject, lightsData, renderId, isStatic = false ) {
 
 		const { object, material, geometry } = renderObject;
 
@@ -620,102 +738,109 @@ class NodeMaterialObserver {
 
 		}
 
-		const geometryData = this.getGeometryData( renderObject.geometry );
+		// the attributes of static render bundles are only uploaded where they are expected to
+		// change (instance and indirect buffers), see Renderer._updateBundle()
 
-		// check the geometry properties just once per render for all render objects
+		if ( isStatic === false ) {
 
-		if ( geometryData._renderId !== renderId ) {
+			const geometryData = this.getGeometryData( renderObject.geometry );
 
-			geometryData._renderId = renderId;
+			// check the geometry properties just once per render for all render objects
 
-			let changed = false;
+			if ( geometryData._renderId !== renderId ) {
 
-			// attributes
+				geometryData._renderId = renderId;
 
-			const attributes = geometry.attributes;
-			const storedAttributes = geometryData.attributes;
+				let changed = false;
 
-			let currentAttributeCount = 0;
-			let storedAttributeCount = 0;
+				// attributes
 
-			for ( const _ in attributes ) currentAttributeCount ++; // eslint-disable-line no-unused-vars
+				const attributes = geometry.attributes;
+				const storedAttributes = geometryData.attributes;
 
-			for ( const name in storedAttributes ) {
+				let currentAttributeCount = 0;
+				let storedAttributeCount = 0;
 
-				storedAttributeCount ++;
+				for ( const _ in attributes ) currentAttributeCount ++; // eslint-disable-line no-unused-vars
 
-				const storedAttributeData = storedAttributes[ name ];
-				const attribute = attributes[ name ];
+				for ( const name in storedAttributes ) {
 
-				if ( attribute === undefined ) {
+					storedAttributeCount ++;
 
-					// attribute was removed
-					delete storedAttributes[ name ];
+					const storedAttributeData = storedAttributes[ name ];
+					const attribute = attributes[ name ];
 
-					changed = true;
-					continue;
+					if ( attribute === undefined ) {
+
+						// attribute was removed
+						delete storedAttributes[ name ];
+
+						changed = true;
+						continue;
+
+					}
+
+					const id = attribute.isInterleavedBufferAttribute ? attribute.data.uuid : attribute.id;
+					const version = attribute.isInterleavedBufferAttribute ? attribute.data.version : attribute.version;
+
+					if ( storedAttributeData.id !== id || storedAttributeData.version !== version ) {
+
+						storedAttributeData.id = id;
+						storedAttributeData.version = version;
+
+						changed = true;
+
+					}
 
 				}
 
-				const id = attribute.isInterleavedBufferAttribute ? attribute.data.uuid : attribute.id;
-				const version = attribute.isInterleavedBufferAttribute ? attribute.data.version : attribute.version;
+				if ( storedAttributeCount !== currentAttributeCount ) {
 
-				if ( storedAttributeData.id !== id || storedAttributeData.version !== version ) {
-
-					storedAttributeData.id = id;
-					storedAttributeData.version = version;
+					geometryData.attributes = this.getAttributesData( attributes );
 
 					changed = true;
 
 				}
 
-			}
+				// check index
 
-			if ( storedAttributeCount !== currentAttributeCount ) {
+				const index = geometry.index;
+				const currentIndexId = index ? index.id : null;
+				const currentIndexVersion = index ? index.version : null;
 
-				geometryData.attributes = this.getAttributesData( attributes );
+				if ( geometryData.indexId !== currentIndexId || geometryData.indexVersion !== currentIndexVersion ) {
 
-				changed = true;
+					geometryData.indexId = currentIndexId;
+					geometryData.indexVersion = currentIndexVersion;
 
-			}
+					changed = true;
 
-			// check index
+				}
 
-			const index = geometry.index;
-			const currentIndexId = index ? index.id : null;
-			const currentIndexVersion = index ? index.version : null;
+				// check drawRange
 
-			if ( geometryData.indexId !== currentIndexId || geometryData.indexVersion !== currentIndexVersion ) {
+				if ( geometryData.drawRange.start !== geometry.drawRange.start || geometryData.drawRange.count !== geometry.drawRange.count ) {
 
-				geometryData.indexId = currentIndexId;
-				geometryData.indexVersion = currentIndexVersion;
+					geometryData.drawRange.start = geometry.drawRange.start;
+					geometryData.drawRange.count = geometry.drawRange.count;
 
-				changed = true;
+					changed = true;
 
-			}
+				}
 
-			// check drawRange
-
-			if ( geometryData.drawRange.start !== geometry.drawRange.start || geometryData.drawRange.count !== geometry.drawRange.count ) {
-
-				geometryData.drawRange.start = geometry.drawRange.start;
-				geometryData.drawRange.count = geometry.drawRange.count;
-
-				changed = true;
+				if ( changed === true ) geometryData._version ++;
 
 			}
 
-			if ( changed === true ) geometryData._version ++;
+			// a version mismatch means the geometry has changed since this render object was last refreshed
 
-		}
+			if ( renderObjectData.geometryVersion !== geometryData._version ) {
 
-		// a version mismatch means the geometry has changed since this render object was last refreshed
+				renderObjectData.geometryVersion = geometryData._version;
 
-		if ( renderObjectData.geometryVersion !== geometryData._version ) {
+				return false;
 
-			renderObjectData.geometryVersion = geometryData._version;
-
-			return false;
+			}
 
 		}
 
@@ -742,7 +867,7 @@ class NodeMaterialObserver {
 
 		// instancing
 
-		if ( object.isInstancedMesh === true ) {
+		if ( isStatic === false && object.isInstancedMesh === true ) {
 
 			const instanceColorVersion = object.instanceColor !== null ? object.instanceColor.version : null;
 			const morphTextureVersion = object.morphTexture !== null ? object.morphTexture.version : null;
@@ -784,6 +909,16 @@ class NodeMaterialObserver {
 		// lights
 
 		if ( renderObjectData.lights ) {
+
+			if ( renderObjectData.lights.length !== lightsData.length ) {
+
+				// lights were added or removed (render objects of static content are kept)
+
+				renderObjectData.lights = lightsData.map( ( lightData ) => Object.assign( {}, lightData ) );
+
+				return false;
+
+			}
 
 			for ( let i = 0; i < lightsData.length; i ++ ) {
 
@@ -924,7 +1059,224 @@ class NodeMaterialObserver {
 	}
 
 	/**
+	 * Returns the object-scope bindings of the given render object whose values do not depend on
+	 * the render object itself, i.e. uniforms, textures and storage buffers in non-shared uniform groups
+	 * that are not written by a node updated per object. Used for static content with node materials.
+	 *
+	 * @private
+	 * @param {RenderObject} renderObject - The render object.
+	 * @return {Object} The tracked bindings and whether one of them is updated per frame or render.
+	 */
+	getObjectUniforms( renderObject ) {
+
+		const nodeBuilderState = renderObject.getNodeBuilderState();
+
+		// uniforms written by nodes that are updated per object (model matrices, material references,
+		// onObjectUpdate() callbacks) are covered by equals(), not tracked here
+
+		const ownedNodes = new Set();
+
+		const addOwned = ( node ) => {
+
+			if ( node.isUniformNode === true ) ownedNodes.add( node );
+
+			for ( const property in node ) {
+
+				const value = node[ property ];
+
+				if ( value !== null && typeof value === 'object' && value.isUniformNode === true ) ownedNodes.add( value );
+
+			}
+
+		};
+
+		for ( const node of nodeBuilderState.updateNodes ) if ( node.updateType === NodeUpdateType.OBJECT ) addOwned( node );
+		for ( const node of nodeBuilderState.updateBeforeNodes ) if ( node.updateBeforeType === NodeUpdateType.OBJECT ) addOwned( node );
+		for ( const node of nodeBuilderState.updateAfterNodes ) if ( node.updateAfterType === NodeUpdateType.OBJECT ) addOwned( node );
+
+		const uniforms = [];
+		const resources = [];
+		let dynamic = false;
+
+		for ( const bindGroup of renderObject.getBindings() ) {
+
+			for ( const binding of bindGroup.bindings ) {
+
+				if ( binding.groupNode !== undefined && binding.groupNode.shared === true ) continue;
+
+				if ( binding.isNodeUniformsGroup === true ) {
+
+					for ( const uniform of binding.uniforms ) {
+
+						const node = uniform.nodeUniform.node;
+
+						if ( ownedNodes.has( node ) ) continue;
+
+						if ( node.updateType === NodeUpdateType.FRAME || node.updateType === NodeUpdateType.RENDER ) {
+
+							// such nodes are updated after this check, so a change would be seen one render late
+
+							dynamic = true;
+
+						} else {
+
+							uniforms.push( { node, value: this.cloneUniformValue( node.value ) } );
+
+						}
+
+					}
+
+				} else if ( binding.isSampledTexture === true ) {
+
+					const node = binding.textureNode;
+
+					if ( ownedNodes.has( node ) === false && node.value !== null && node.value !== undefined ) {
+
+						resources.push( { node, value: node.value, version: node.value.version } );
+
+					}
+
+				} else if ( binding.isStorageBuffer === true ) {
+
+					const node = binding.nodeUniform;
+
+					if ( node !== undefined && node !== null && ownedNodes.has( node ) === false && node.value ) {
+
+						resources.push( { node, value: node.value, version: node.value.version } );
+
+					} else {
+
+						dynamic = true;
+
+					}
+
+				} else if ( binding.isUniformBuffer === true ) {
+
+					dynamic = true;
+
+				}
+
+			}
+
+		}
+
+		return { uniforms, resources, dynamic };
+
+	}
+
+	/**
+	 * Returns a copy of the given uniform value for change detection.
+	 *
+	 * @private
+	 * @param {any} value - The uniform value.
+	 * @return {any} The copy.
+	 */
+	cloneUniformValue( value ) {
+
+		if ( value !== null && typeof value === 'object' && typeof value.clone === 'function' && typeof value.equals === 'function' ) return value.clone();
+
+		return value;
+
+	}
+
+	/**
+	 * Returns `true` if the values of the object-scope uniforms of the given render object changed since
+	 * its last refresh. Values that do not depend on the render object are compared once per render
+	 * for all render objects sharing this observer. A new version of the same texture or storage
+	 * buffer only has to be uploaded, which is signaled with {@link NodeMaterialObserver#resourcesRenderId}.
+	 *
+	 * @param {RenderObject} renderObject - The render object.
+	 * @param {number} renderId - The current render ID.
+	 * @return {boolean} Whether the object-scope uniforms changed or not.
+	 */
+	objectUniformsChanged( renderObject, renderId ) {
+
+		if ( this.objectUniforms === null ) {
+
+			this.objectUniforms = this.getObjectUniforms( renderObject );
+			this.objectUniformsRenderId = renderId;
+
+		} else if ( this.objectUniformsRenderId !== renderId ) {
+
+			this.objectUniformsRenderId = renderId;
+
+			const { uniforms, resources } = this.objectUniforms;
+
+			let changed = false;
+
+			for ( let i = 0, l = uniforms.length; i < l; i ++ ) {
+
+				const entry = uniforms[ i ];
+				const value = entry.node.value;
+				const stored = entry.value;
+
+				if ( stored !== null && typeof stored === 'object' && stored.equals !== undefined && value !== null && typeof value === 'object' && stored.constructor === value.constructor ) {
+
+					if ( stored.equals( value ) === false ) {
+
+						stored.copy( value );
+						changed = true;
+
+					}
+
+				} else if ( stored !== value ) {
+
+					entry.value = this.cloneUniformValue( value );
+					changed = true;
+
+				}
+
+			}
+
+			for ( let i = 0, l = resources.length; i < l; i ++ ) {
+
+				const entry = resources[ i ];
+				const value = entry.node.value;
+
+				if ( value !== entry.value ) {
+
+					entry.value = value;
+					entry.version = value ? value.version : 0;
+					changed = true;
+
+				} else if ( value && value.version !== entry.version ) {
+
+					entry.version = value.version;
+					this.resourcesRenderId = renderId;
+
+				}
+
+			}
+
+			if ( changed === true ) this.objectUniformsVersion ++;
+
+		}
+
+		if ( this.objectUniforms.dynamic === true ) return true;
+
+		const data = this.getRenderObjectData( renderObject );
+
+		if ( data.objectUniformsVersion !== this.objectUniformsVersion ) {
+
+			data.objectUniformsVersion = this.objectUniformsVersion;
+
+			return true;
+
+		}
+
+		return false;
+
+	}
+
+	/**
 	 * Checks if the given render object requires a refresh.
+	 *
+	 * Render objects of static 3D objects ({@link Object3D#static}) and of static render bundles
+	 * ({@link BundleGroup#static}) are only refreshed when something they depend on changed: the
+	 * world matrix, the material properties, the render target size, the shadow maps of the lights
+	 * or the values of object-scope uniforms (see {@link NodeMaterialObserver#objectUniformsChanged}).
+	 * This also applies to node materials, whose render objects are otherwise refreshed every render.
+	 * Uniforms in shared groups (e.g. `renderGroup`) are refreshed every render.
 	 *
 	 * @param {RenderObject} renderObject - The render object.
 	 * @param {NodeFrame} nodeFrame - The current node frame.
@@ -932,10 +1284,62 @@ class NodeMaterialObserver {
 	 */
 	needsRefresh( renderObject, nodeFrame ) {
 
-		if ( this.hasNode || this.hasAnimation || this.hasDynamicInstancing( renderObject.object ) || this.firstInitialization( renderObject ) || this.needsVelocity( nodeFrame.renderer ) )
+		const isStatic = renderObject.object.static === true;
+		const isStaticBundle = renderObject.bundle !== null && renderObject.bundle.static === true;
+
+		if ( this.hasNode === true && isStatic === false && isStaticBundle === false )
+			return RenderObjectRefreshType.FULL;
+
+		if ( this.hasAnimation || this.hasDynamicInstancing( renderObject.object ) || this.needsVelocity( nodeFrame.renderer ) )
 			return RenderObjectRefreshType.FULL;
 
 		const { renderId } = nodeFrame;
+
+		if ( isStatic === true || isStaticBundle === true ) {
+
+			// static content
+
+			const firstInitialization = this.firstInitialization( renderObject );
+			const uniformsChanged = this.objectUniformsChanged( renderObject, renderId );
+
+			if ( firstInitialization === true ) return RenderObjectRefreshType.FULL;
+
+			const renderObjectData = this.getRenderObjectData( renderObject );
+
+			if ( isStatic === false && renderObjectData.version !== renderObject.bundle.version ) {
+
+				// the bundle was updated
+
+				renderObjectData.version = renderObject.bundle.version;
+
+				return RenderObjectRefreshType.FULL;
+
+			}
+
+			let refreshType = RenderObjectRefreshType.NONE;
+
+			if ( this.renderId !== renderId ) {
+
+				this.renderId = renderId;
+
+				refreshType = RenderObjectRefreshType.SHARED;
+
+			}
+
+			const lightsData = this.getLights( renderObject.lightsNode, renderId );
+
+			if ( this.equals( renderObject, lightsData, renderId, isStatic === false ) === false || uniformsChanged === true ) {
+
+				refreshType = RenderObjectRefreshType.FULL;
+
+			}
+
+			return refreshType;
+
+		}
+
+		if ( this.firstInitialization( renderObject ) )
+			return RenderObjectRefreshType.FULL;
 
 		let refreshType = RenderObjectRefreshType.NONE;
 
@@ -951,12 +1355,6 @@ class NodeMaterialObserver {
 			refreshType = RenderObjectRefreshType.SHARED;
 
 		}
-
-		const isStatic = renderObject.object.static === true;
-		const isBundle = renderObject.bundle !== null && renderObject.bundle.static === true && this.getRenderObjectData( renderObject ).version === renderObject.bundle.version;
-
-		if ( isStatic || isBundle )
-			return refreshType;
 
 		const lightsData = this.getLights( renderObject.lightsNode, renderId );
 
@@ -1600,75 +1998,6 @@ var NodeUtils = /*#__PURE__*/Object.freeze({
 	hashString: hashString,
 	isArrayAsParameter: isArrayAsParameter
 });
-
-/**
- * Possible shader stages.
- *
- * @property {string} VERTEX The vertex shader stage.
- * @property {string} FRAGMENT The fragment shader stage.
- */
-const NodeShaderStage = {
-	VERTEX: 'vertex',
-	FRAGMENT: 'fragment'
-};
-
-/**
- * Update types of a node.
- *
- * @property {string} NONE The update method is not executed.
- * @property {string} FRAME The update method is executed per frame.
- * @property {string} RENDER The update method is executed per render. A frame might be produced by multiple render calls so this value allows more detailed updates than FRAME.
- * @property {string} OBJECT The update method is executed per {@link Object3D} that uses the node for rendering.
- */
-const NodeUpdateType = {
-	NONE: 'none',
-	FRAME: 'frame',
-	RENDER: 'render',
-	OBJECT: 'object'
-};
-
-/**
- * Data types of a node.
- *
- * @property {string} BOOLEAN Boolean type.
- * @property {string} INTEGER Integer type.
- * @property {string} FLOAT Float type.
- * @property {string} VECTOR2 Two-dimensional vector type.
- * @property {string} VECTOR3 Three-dimensional vector type.
- * @property {string} VECTOR4 Four-dimensional vector type.
- * @property {string} MATRIX2 2x2 matrix type.
- * @property {string} MATRIX3 3x3 matrix type.
- * @property {string} MATRIX4 4x4 matrix type.
- */
-const NodeType = {
-	BOOLEAN: 'bool',
-	INTEGER: 'int',
-	FLOAT: 'float',
-	VECTOR2: 'vec2',
-	VECTOR3: 'vec3',
-	VECTOR4: 'vec4',
-	MATRIX2: 'mat2',
-	MATRIX3: 'mat3',
-	MATRIX4: 'mat4'
-};
-
-/**
- * Access types of a node. These are relevant for compute and storage usage.
- *
- * @property {string} READ_ONLY Read-only access
- * @property {string} WRITE_ONLY Write-only access.
- * @property {string} READ_WRITE Read and write access.
- */
-const NodeAccess = {
-	READ_ONLY: 'readOnly',
-	WRITE_ONLY: 'writeOnly',
-	READ_WRITE: 'readWrite',
-};
-
-const defaultShaderStages = [ 'fragment', 'vertex' ];
-const defaultBuildStages = [ 'setup', 'analyze', 'generate' ];
-const shaderStages = [ ...defaultShaderStages, 'compute' ];
-const vectorComponents = [ 'x', 'y', 'z', 'w' ];
 
 const _parentBuildStage = {
 	analyze: 'setup',
@@ -14400,6 +14729,7 @@ class BuiltinNode extends Node {
 const builtin = /*@__PURE__*/ nodeProxy( BuiltinNode ).setParameterLength( 1 );
 
 let _screenSizeVec, _viewportVec;
+let _screenSizeNode = null, _viewportNode = null;
 
 /**
  * This node provides a collection of screen related metrics.
@@ -14509,11 +14839,13 @@ class ScreenNode extends Node {
 
 		if ( scope === ScreenNode.SIZE ) {
 
-			output = uniform( _screenSizeVec || ( _screenSizeVec = new Vector2() ) ).setGroup( renderGroup );
+			// one uniform for all materials, so their render-group uniforms can be shared
+
+			output = _screenSizeNode || ( _screenSizeNode = uniform( _screenSizeVec || ( _screenSizeVec = new Vector2() ) ).setGroup( renderGroup ) );
 
 		} else if ( scope === ScreenNode.VIEWPORT ) {
 
-			output = uniform( _viewportVec || ( _viewportVec = new Vector4() ) ).setGroup( renderGroup );
+			output = _viewportNode || ( _viewportNode = uniform( _viewportVec || ( _viewportVec = new Vector4() ) ).setGroup( renderGroup ) );
 
 		} else {
 
@@ -31466,6 +31798,10 @@ class RenderObject {
 
 		}
 
+		// a recorded render bundle must not refer to the resources of a disposed render object
+
+		if ( this.bundle !== null ) this.bundle.needsUpdate = true;
+
 		this.onDispose();
 
 	}
@@ -33676,6 +34012,14 @@ class Bindings extends DataMap {
 		this.nodes = nodes;
 
 		/**
+		 * Incremented whenever the backend creates a bind group, see {@link BindGroup#version}.
+		 *
+		 * @type {number}
+		 * @default 0
+		 */
+		this.version = 0;
+
+		/**
 		 * Renderer component for managing metrics and monitoring data.
 		 *
 		 * @type {Info}
@@ -33889,6 +34233,9 @@ class Bindings extends DataMap {
 				// each object defines an array of bindings (ubos, textures, samplers etc.)
 
 				this.backend.createBindings( bindGroup, bindings, '' );
+
+				bindGroup.version ++;
+				this.version ++;
 
 				groupData.bindGroup = bindGroup;
 				groupData.usedTimes = 1;
@@ -34156,6 +34503,9 @@ class Bindings extends DataMap {
 			updatedBindings.length = firstUpdated;
 
 			this.backend.updateBindings( bindGroup, bindings, cacheBindings ? cacheKey : '', version );
+
+			bindGroup.version ++;
+			this.version ++;
 
 		} else {
 
@@ -46816,6 +47166,31 @@ class ShadowBaseNode extends Node {
  */
 const shadowPositionWorld = /*@__PURE__*/ property( 'vec3', 'shadowPositionWorld' );
 
+const _shadowReferences = new WeakMap();
+
+/**
+ * Returns a reference node in the render group for the given property of a shadow or a shadow camera.
+ * The node is created once per object and property, so materials receiving the same shadows have the
+ * same render-group uniforms and share their uniform buffer instead of updating one each.
+ *
+ * @private
+ * @param {string} property - The property name.
+ * @param {string} uniformType - The uniform type.
+ * @param {Object} object - The shadow or shadow camera.
+ * @return {ReferenceNode} The reference node.
+ */
+function getShadowReference( property, uniformType, object ) {
+
+	let references = _shadowReferences.get( object );
+
+	if ( references === undefined ) _shadowReferences.set( object, references = {} );
+
+	const key = property + ':' + uniformType;
+
+	return references[ key ] || ( references[ key ] = reference( property, uniformType, object ).setGroup( renderGroup ) );
+
+}
+
 /**
  * A shadow filtering function performing basic filtering. This is in fact an unfiltered version of the shadow map
  * with a binary `[0,1]` result.
@@ -46870,8 +47245,8 @@ const PCFShadowFilter = /*@__PURE__*/ Fn( ( { depthTexture, shadowCoord, shadow,
 
 	};
 
-	const mapSize = reference( 'mapSize', 'vec2', shadow ).setGroup( renderGroup );
-	const radius = reference( 'radius', 'float', shadow ).setGroup( renderGroup );
+	const mapSize = getShadowReference( 'mapSize', 'vec2', shadow );
+	const radius = getShadowReference( 'radius', 'float', shadow );
 
 	const texelSize = vec2( 1 ).div( mapSize );
 	const radiusScaled = radius.mul( texelSize.x );
@@ -47196,7 +47571,7 @@ class ShadowNode extends ShadowBaseNode {
 		const { shadow } = this;
 		const { renderer } = builder;
 
-		const bias = shadow.biasNode || reference( 'bias', 'float', shadow ).setGroup( renderGroup );
+		const bias = shadow.biasNode || getShadowReference( 'bias', 'float', shadow );
 
 		let shadowCoord = shadowPosition;
 		let coordZ;
@@ -47215,8 +47590,8 @@ class ShadowNode extends ShadowBaseNode {
 			// The normally available "cameraNear" and "cameraFar" nodes cannot be used here because they do not get
 			// updated to use the shadow camera. So, we have to declare our own "local" ones here.
 			// TODO: How do we get the cameraNear/cameraFar nodes to use the shadow camera so we don't have to declare local ones here?
-			const cameraNearLocal = reference( 'near', 'float', shadow.camera ).setGroup( renderGroup );
-			const cameraFarLocal = reference( 'far', 'float', shadow.camera ).setGroup( renderGroup );
+			const cameraNearLocal = getShadowReference( 'near', 'float', shadow.camera );
+			const cameraFarLocal = getShadowReference( 'far', 'float', shadow.camera );
 
 			coordZ = viewZToLogarithmicDepth( w.negate(), cameraNearLocal, cameraFarLocal );
 
@@ -47342,9 +47717,9 @@ class ShadowNode extends ShadowBaseNode {
 
 			}
 
-			const samples = reference( 'blurSamples', 'float', shadow ).setGroup( renderGroup );
-			const radius = reference( 'radius', 'float', shadow ).setGroup( renderGroup );
-			const size = reference( 'mapSize', 'vec2', shadow ).setGroup( renderGroup );
+			const samples = getShadowReference( 'blurSamples', 'float', shadow );
+			const radius = getShadowReference( 'radius', 'float', shadow );
+			const size = getShadowReference( 'mapSize', 'vec2', shadow );
 
 			const sharedContext = context( builder.getSharedContext() );
 
@@ -47362,8 +47737,8 @@ class ShadowNode extends ShadowBaseNode {
 
 		//
 
-		const shadowIntensity = reference( 'intensity', 'float', shadow ).setGroup( renderGroup );
-		const normalBias = reference( 'normalBias', 'float', shadow ).setGroup( renderGroup );
+		const shadowIntensity = getShadowReference( 'intensity', 'float', shadow );
+		const normalBias = getShadowReference( 'normalBias', 'float', shadow );
 
 		const shadowMatrix = lightShadowMatrix( light );
 		const shadowNormalBias = normalWorld.mul( normalBias );
@@ -47752,6 +48127,29 @@ class ShadowNode extends ShadowBaseNode {
  */
 const shadow = ( light, shadow ) => new ShadowNode( light, shadow );
 
+const _cameraUniforms = new WeakMap();
+
+// render-group uniforms of a shadow camera, shared by all materials (see getShadowReference())
+
+function getShadowCameraUniforms( shadow ) {
+
+	let uniforms = _cameraUniforms.get( shadow );
+
+	if ( uniforms === undefined ) {
+
+		uniforms = {
+			near: uniform( 'float' ).setGroup( renderGroup ).onRenderUpdate( () => shadow.camera.near ),
+			far: uniform( 'float' ).setGroup( renderGroup ).onRenderUpdate( () => shadow.camera.far )
+		};
+
+		_cameraUniforms.set( shadow, uniforms );
+
+	}
+
+	return uniforms;
+
+}
+
 const _clearColor$1 = /*@__PURE__*/ new Color();
 const _projScreenMatrix$1 = /*@__PURE__*/ new Matrix4();
 const _lightPositionWorld = /*@__PURE__*/ new Vector3();
@@ -47803,8 +48201,8 @@ const BasicPointShadowFilter = /*@__PURE__*/ Fn( ( { depthTexture, bd3D, dp } ) 
  */
 const PointShadowFilter = /*@__PURE__*/ Fn( ( { depthTexture, bd3D, dp, shadow } ) => {
 
-	const radius = reference( 'radius', 'float', shadow ).setGroup( renderGroup );
-	const mapSize = reference( 'mapSize', 'vec2', shadow ).setGroup( renderGroup );
+	const radius = getShadowReference( 'radius', 'float', shadow );
+	const mapSize = getShadowReference( 'mapSize', 'vec2', shadow );
 
 	const texelSize = radius.div( mapSize.x );
 
@@ -47840,9 +48238,8 @@ const pointShadowFilter = /*@__PURE__*/ Fn( ( { filterFn, depthTexture, shadowCo
 	const shadowPositionAbs = shadowPosition.abs().toConst();
 	const viewZ = shadowPositionAbs.x.max( shadowPositionAbs.y ).max( shadowPositionAbs.z );
 
-	const shadowCameraNear = uniform( 'float' ).setGroup( renderGroup ).onRenderUpdate( () => shadow.camera.near );
-	const shadowCameraFar = uniform( 'float' ).setGroup( renderGroup ).onRenderUpdate( () => shadow.camera.far );
-	const bias = reference( 'bias', 'float', shadow ).setGroup( renderGroup );
+	const { near: shadowCameraNear, far: shadowCameraFar } = getShadowCameraUniforms( shadow );
+	const bias = getShadowReference( 'bias', 'float', shadow );
 
 	const result = float( 1.0 ).toVar();
 
@@ -51582,6 +51979,16 @@ class BindGroup {
 		 */
 		this.id = _id$7 ++;
 
+		/**
+		 * Incremented whenever the backend (re-)creates the bind group, e.g. after
+		 * a texture of the group was replaced. Render bundles use it to detect
+		 * recorded commands that refer to a previous bind group.
+		 *
+		 * @type {number}
+		 * @default 0
+		 */
+		this.version = 0;
+
 	}
 
 }
@@ -51679,6 +52086,15 @@ class NodeBuilderState {
 		 * @type {Array<Node>}
 		 */
 		this.updateAfterNodes = updateAfterNodes;
+
+		/**
+		 * The nodes of {@link NodeBuilderState#updateNodes} that write uniforms of shared groups,
+		 * see {@link NodeManager#updateSharedForRender}. Computed on first use.
+		 *
+		 * @type {?Array<Node>}
+		 * @default null
+		 */
+		this.sharedUpdateNodes = null;
 
 		/**
 		 * A node material observer.
@@ -58801,6 +59217,60 @@ class NodeManager extends DataMap {
 	}
 
 	/**
+	 * Updates the nodes of the given render object that are updated per frame or per render, and
+	 * the ones updated per object that write uniforms of shared groups (e.g. references in
+	 * `renderGroup`). Used when only the shared uniforms of the render object are refreshed:
+	 * the other per-object nodes only affect the object-scope uniforms.
+	 *
+	 * @param {RenderObject} renderObject - The render object.
+	 */
+	updateSharedForRender( renderObject ) {
+
+		const nodeFrame = this.getNodeFrameForRender( renderObject );
+		const nodeBuilderState = renderObject.getNodeBuilderState();
+
+		let nodes = nodeBuilderState.sharedUpdateNodes;
+
+		if ( nodes === null ) {
+
+			nodes = nodeBuilderState.sharedUpdateNodes = [];
+
+			const isShared = ( node ) => node !== null && typeof node === 'object' && node.isUniformNode === true && node.groupNode.shared === true;
+
+			for ( const node of nodeBuilderState.updateNodes ) {
+
+				let shared = node.getUpdateType( nodeFrame ) !== NodeUpdateType.OBJECT || isShared( node );
+
+				if ( shared === false ) {
+
+					for ( const property in node ) {
+
+						if ( isShared( node[ property ] ) ) {
+
+							shared = true;
+							break;
+
+						}
+
+					}
+
+				}
+
+				if ( shared === true ) nodes.push( node );
+
+			}
+
+		}
+
+		for ( let i = 0, l = nodes.length; i < l; i ++ ) {
+
+			nodeFrame.updateNode( nodes[ i ] );
+
+		}
+
+	}
+
+	/**
 	 * Returns the refresh type of the given render object.
 	 *
 	 * @param {RenderObject} renderObject - The render object.
@@ -63308,11 +63778,31 @@ class Renderer {
 
 		const renderBundle = this._bundles.get( bundleGroup, camera, renderContext );
 		const renderBundleData = this.backend.get( renderBundle );
-		const renderBundleNeedsUpdate = this._bundleNeedsUpdate( bundleGroup, renderBundleData );
+		let renderBundleNeedsUpdate = this._bundleNeedsUpdate( bundleGroup, renderBundleData );
+
+		if ( renderBundleNeedsUpdate === false ) {
+
+			// refresh the render objects of the bundle. If the recorded commands no longer match them
+			// (material or bind groups changed), record the bundle again from the same render list
+
+			if ( this._updateBundle( bundleGroup, renderBundleData ) === false ) {
+
+				renderBundleData.renderObjects.length = 0;
+
+				renderBundleNeedsUpdate = true;
+
+			}
+
+		}
 
 		if ( renderBundleNeedsUpdate ) {
 
 			this.backend.beginBundle( renderContext );
+
+			// nested renders (e.g. shadow maps updated from a node's updateBefore() while the bundle
+			// is recorded) record their own bundles, so restore the outer one afterwards
+
+			const previousRenderBundle = this._currentRenderBundle;
 
 			this._currentRenderBundle = renderBundle;
 
@@ -63325,7 +63815,7 @@ class Renderer {
 			if ( this.opaque === true && opaqueObjects.length > 0 ) this._renderObjects( opaqueObjects, camera, sceneRef, lightsNode );
 			if ( this.transparent === true && transparentObjects.length > 0 ) this._renderTransparents( transparentObjects, transparentDoublePassObjects, camera, sceneRef, lightsNode );
 
-			this._currentRenderBundle = null;
+			this._currentRenderBundle = previousRenderBundle;
 
 			//
 
@@ -63333,34 +63823,49 @@ class Renderer {
 
 			renderBundleData.version = bundleGroup.version;
 
-		} else {
+			this._storeBundleState( renderBundleData );
 
-			const { renderObjects } = renderBundleData;
+		}
 
-			for ( let i = 0, l = renderObjects.length; i < l; i ++ ) {
+		this.backend.addBundle( renderContext, renderBundle );
 
-				const renderObject = renderObjects[ i ];
+	}
 
-				const refreshType = this._nodes.needsRefresh( renderObject );
+	/**
+	 * Stores the material versions and bind groups the given render bundle was recorded with.
+	 *
+	 * @private
+	 * @param {Object} renderBundleData - The backend data of the render bundle.
+	 */
+	_storeBundleState( renderBundleData ) {
 
-				if ( refreshType === RenderObjectRefreshType.FULL ) {
+		const renderObjects = renderBundleData.renderObjects;
 
-					this._nodes.updateBefore( renderObject );
+		const materialVersions = renderBundleData.materialVersions || ( renderBundleData.materialVersions = [] );
+		const bindGroups = renderBundleData.bindGroups || ( renderBundleData.bindGroups = [] );
+		const bindGroupVersions = renderBundleData.bindGroupVersions || ( renderBundleData.bindGroupVersions = [] );
 
-					this._geometries.updateForRender( renderObject );
-					this._nodes.updateForRender( renderObject );
-					this._bindings.updateForRender( renderObject );
+		materialVersions.length = 0;
+		bindGroups.length = 0;
+		bindGroupVersions.length = 0;
 
-					this._nodes.updateAfter( renderObject );
+		for ( let i = 0, l = renderObjects.length; i < l; i ++ ) {
 
-				} else if ( refreshType === RenderObjectRefreshType.SHARED ) {
+			const renderObject = renderObjects[ i ];
+			const material = renderObject._sourceMaterial !== null ? renderObject._sourceMaterial : renderObject.material;
 
-					this._nodes.updateBefore( renderObject );
+			materialVersions.push( material.version );
 
-					this._nodes.updateForRender( renderObject );
-					this._bindings.updateSharedForRender( renderObject );
+			const bindings = renderObject.getBindings();
 
-					this._nodes.updateAfter( renderObject );
+			for ( let j = 0, n = bindings.length; j < n; j ++ ) {
+
+				const bindGroup = bindings[ j ];
+
+				if ( bindGroups.includes( bindGroup ) === false ) {
+
+					bindGroups.push( bindGroup );
+					bindGroupVersions.push( bindGroup.version );
 
 				}
 
@@ -63368,7 +63873,284 @@ class Renderer {
 
 		}
 
-		this.backend.addBundle( renderContext, renderBundle );
+		renderBundleData.bindingsVersion = this._bindings.version;
+
+	}
+
+	/**
+	 * Refreshes the render objects of a recorded render bundle before it is executed again.
+	 *
+	 * Returns `false` if the bundle must be recorded again: a material of the bundle changed or a
+	 * bind group used by the bundle was re-created (e.g. a texture of a material was replaced),
+	 * so the recorded commands no longer match the render objects.
+	 *
+	 * @private
+	 * @param {BundleGroup} bundleGroup - The bundle group.
+	 * @param {Object} renderBundleData - The backend data of the render bundle.
+	 * @return {boolean} Whether the recorded render bundle is still valid or not.
+	 */
+	_updateBundle( bundleGroup, renderBundleData ) {
+
+		const { renderObjects, materialVersions } = renderBundleData;
+
+		const isStatic = bundleGroup.static === true;
+		const renderId = this._nodes.nodeFrame.renderId;
+
+		for ( let i = 0, l = renderObjects.length; i < l; i ++ ) {
+
+			const renderObject = renderObjects[ i ];
+			const sourceMaterial = renderObject._sourceMaterial;
+
+			if ( ( sourceMaterial !== null ? sourceMaterial : renderObject.material ).version !== materialVersions[ i ] ) return false;
+
+			// render objects drawn with an override material (e.g. shadow maps) are refreshed with the
+			// per-object state renderObject() would set up
+
+			const overrideState = sourceMaterial !== null ? this._applyOverrideMaterial( sourceMaterial, renderObject.material ) : null;
+
+			// static bundles: run the nodes updated before rendering first (once per material and render),
+			// since they can change values the change detection of needsRefresh() depends on
+
+			let updatedBefore = false;
+
+			if ( isStatic === true ) {
+
+				const monitor = renderObject.getMonitor();
+
+				if ( monitor.bundleRenderId !== renderId ) {
+
+					monitor.bundleRenderId = renderId;
+
+					this._nodes.updateBefore( renderObject );
+
+					updatedBefore = true;
+
+				}
+
+			}
+
+			const refreshType = this._nodes.needsRefresh( renderObject );
+
+			if ( refreshType === RenderObjectRefreshType.FULL ) {
+
+				if ( updatedBefore === false ) this._nodes.updateBefore( renderObject );
+
+				this._geometries.updateForRender( renderObject );
+				this._nodes.updateForRender( renderObject );
+				this._bindings.updateForRender( renderObject );
+
+				this._nodes.updateAfter( renderObject );
+
+			} else if ( refreshType === RenderObjectRefreshType.SHARED ) {
+
+				if ( updatedBefore === false ) this._nodes.updateBefore( renderObject );
+
+				if ( isStatic === true ) {
+
+					this._updateBundleResources( renderObject, renderId );
+
+					if ( this._hasDynamicGeometry( renderObject ) ) this._geometries.updateForRender( renderObject );
+
+					// nodes updated per object only affect the object-scope uniforms, which are not refreshed here
+
+					this._nodes.updateSharedForRender( renderObject );
+
+				} else {
+
+					this._nodes.updateForRender( renderObject );
+
+				}
+
+				this._bindings.updateSharedForRender( renderObject );
+
+				this._nodes.updateAfter( renderObject );
+
+			} else if ( isStatic === true ) {
+
+				this._updateBundleResources( renderObject, renderId );
+
+				if ( this._hasDynamicGeometry( renderObject ) ) this._geometries.updateForRender( renderObject );
+
+			}
+
+			if ( overrideState !== null ) this._restoreOverrideMaterial( renderObject.material, overrideState );
+
+		}
+
+		// bind groups re-created since the bundle was recorded (by the refresh above or by other render objects)
+
+		if ( renderBundleData.bindingsVersion !== this._bindings.version ) {
+
+			const { bindGroups, bindGroupVersions } = renderBundleData;
+
+			for ( let i = 0, l = bindGroups.length; i < l; i ++ ) {
+
+				if ( bindGroups[ i ].version !== bindGroupVersions[ i ] ) return false;
+
+			}
+
+			renderBundleData.bindingsVersion = this._bindings.version;
+
+		}
+
+		return true;
+
+	}
+
+	/**
+	 * Returns `true` if the given render object of a static bundle draws buffers that are updated
+	 * without a full refresh of the render object: instance attributes and indirect draw buffers.
+	 * Changes of other geometry attributes are detected by {@link NodeMaterialObserver#equals}.
+	 *
+	 * @private
+	 * @param {RenderObject} renderObject - The render object.
+	 * @return {boolean} Whether the geometry of the render object must be checked for updates.
+	 */
+	_hasDynamicGeometry( renderObject ) {
+
+		const object = renderObject.object;
+
+		return object.isInstancedMesh === true || object.isBatchedMesh === true || renderObject.geometry.indirect !== null;
+
+	}
+
+	/**
+	 * Uploads new versions of the textures and storage buffers tracked for a static render object,
+	 * see {@link NodeMaterialObserver#objectUniformsChanged}. If a texture was re-created, the render
+	 * objects sharing the material get a full refresh since their bind groups refer to the old one.
+	 *
+	 * @private
+	 * @param {RenderObject} renderObject - The render object.
+	 * @param {number} renderId - The current render ID.
+	 */
+	_updateBundleResources( renderObject, renderId ) {
+
+		const monitor = renderObject.getMonitor();
+
+		if ( monitor.resourcesRenderId !== renderId ) return;
+
+		monitor.resourcesRenderId = -1;
+
+		const resources = monitor.objectUniforms.resources;
+
+		for ( let i = 0, l = resources.length; i < l; i ++ ) {
+
+			const resource = resources[ i ].value;
+
+			if ( resource.isTexture === true ) {
+
+				this._textures.updateTexture( resource );
+
+			} else if ( resource.isBufferAttribute === true ) {
+
+				this._attributes.update( resource, resource.isIndirectStorageBufferAttribute ? AttributeType.INDIRECT : AttributeType.STORAGE );
+
+			}
+
+		}
+
+		// a re-created texture (by this upload or an earlier one) requires new bind groups
+
+		const bindings = renderObject.getBindings();
+
+		for ( let i = 0, l = bindings.length; i < l; i ++ ) {
+
+			const groupBindings = bindings[ i ].bindings;
+
+			for ( let j = 0, n = groupBindings.length; j < n; j ++ ) {
+
+				const binding = groupBindings[ j ];
+
+				if ( binding.isSampledTexture === true && binding.texture !== null && binding.generation !== this._textures.get( binding.texture ).generation ) {
+
+					monitor.objectUniformsVersion ++;
+
+					return;
+
+				}
+
+			}
+
+		}
+
+	}
+
+	/**
+	 * Sets up the given override material for the given source material like {@link Renderer#renderObject}
+	 * does and returns the previous values, see {@link Renderer#_restoreOverrideMaterial}.
+	 *
+	 * @private
+	 * @param {Material} material - The source material.
+	 * @param {Material} overrideMaterial - The override material.
+	 * @return {Object} The previous values of the override material.
+	 */
+	_applyOverrideMaterial( material, overrideMaterial ) {
+
+		const state = {
+			colorNode: ( overrideMaterial.isNodeMaterial ) ? overrideMaterial.colorNode : null,
+			depthNode: ( overrideMaterial.isNodeMaterial ) ? overrideMaterial.depthNode : null,
+			positionNode: ( overrideMaterial.isNodeMaterial ) ? overrideMaterial.positionNode : null,
+			side: overrideMaterial.side,
+			displacementMap: overrideMaterial.displacementMap,
+			displacementScale: overrideMaterial.displacementScale,
+			displacementBias: overrideMaterial.displacementBias
+		};
+
+		if ( material.positionNode && material.positionNode.isNode ) {
+
+			overrideMaterial.positionNode = material.positionNode;
+
+		}
+
+		overrideMaterial.alphaTest = material.alphaTest;
+		overrideMaterial.alphaMap = material.alphaMap;
+		overrideMaterial.displacementMap = material.displacementMap;
+		overrideMaterial.displacementScale = material.displacementScale;
+		overrideMaterial.displacementBias = material.displacementBias;
+		overrideMaterial.transparent = material.transparent || material.transmission > 0 ||
+			( material.transmissionNode && material.transmissionNode.isNode ) ||
+			( material.backdropNode && material.backdropNode.isNode );
+
+		if ( overrideMaterial.isShadowPassMaterial ) {
+
+			const { colorNode, depthNode, positionNode } = this._getShadowNodes( material );
+
+			if ( this.shadowMap.type === VSMShadowMap ) {
+
+				overrideMaterial.side = ( material.shadowSide !== null ) ? material.shadowSide : material.side;
+
+			} else {
+
+				overrideMaterial.side = ( material.shadowSide !== null ) ? material.shadowSide : _shadowSide[ material.side ];
+
+			}
+
+			if ( colorNode !== null ) overrideMaterial.colorNode = colorNode;
+			if ( depthNode !== null ) overrideMaterial.depthNode = depthNode;
+			if ( positionNode !== null ) overrideMaterial.positionNode = positionNode;
+
+		}
+
+		return state;
+
+	}
+
+	/**
+	 * Restores the values of an override material changed by {@link Renderer#_applyOverrideMaterial}.
+	 *
+	 * @private
+	 * @param {Material} overrideMaterial - The override material.
+	 * @param {Object} state - The previous values.
+	 */
+	_restoreOverrideMaterial( overrideMaterial, state ) {
+
+		overrideMaterial.colorNode = state.colorNode;
+		overrideMaterial.depthNode = state.depthNode;
+		overrideMaterial.positionNode = state.positionNode;
+		overrideMaterial.side = state.side;
+		overrideMaterial.displacementMap = state.displacementMap;
+		overrideMaterial.displacementScale = state.displacementScale;
+		overrideMaterial.displacementBias = state.displacementBias;
 
 	}
 
@@ -63790,8 +64572,10 @@ class Renderer {
 			opaque: opaqueObjects
 		} = renderList;
 
-		if ( bundles.length > 0 ) this._renderBundles( bundles, sceneRef, lightsNode );
+		// bundles after the opaque objects (the background is drawn without depth test) and before the transparent ones
+
 		if ( this.opaque === true && opaqueObjects.length > 0 ) this._renderObjects( opaqueObjects, camera, sceneRef, lightsNode );
+		if ( bundles.length > 0 ) this._renderBundles( bundles, sceneRef, lightsNode );
 		if ( this.transparent === true && transparentObjects.length > 0 ) this._renderTransparents( transparentObjects, transparentDoublePassObjects, camera, sceneRef, lightsNode );
 
 		// finish render pass
@@ -88551,7 +89335,6 @@ class WebGPUBackend extends Backend {
 
 		renderContextData.descriptor = descriptor;
 		renderContextData.encoder = encoder;
-		renderContextData.renderBundles = [];
 
 		this._resetRenderContextData( renderContextData );
 
@@ -88818,12 +89601,6 @@ class WebGPUBackend extends Backend {
 
 		const renderContextData = this.get( renderContext );
 		const occlusionQueryCount = renderContext.occlusionQueryCount;
-
-		if ( renderContextData.renderBundles.length > 0 ) {
-
-			renderContextData.currentPass.executeBundles( renderContextData.renderBundles );
-
-		}
 
 		const lastOcclusionObject = renderContextData.lastOcclusionObject;
 
@@ -90145,7 +90922,8 @@ class WebGPUBackend extends Backend {
 	}
 
 	/**
-	 * Adds a render bundle to the render context data.
+	 * Executes the given render bundle in the current render pass. Bundles are executed
+	 * in submission order with the other draw calls of the pass.
 	 *
 	 * @param {RenderContext} renderContext - The render context.
 	 * @param {RenderBundle} bundle - The render bundle to add.
@@ -90154,7 +90932,11 @@ class WebGPUBackend extends Backend {
 
 		const renderContextData = this.get( renderContext );
 
-		renderContextData.renderBundles.push( this.get( bundle ).bundleGPU );
+		renderContextData.currentPass.executeBundles( [ this.get( bundle ).bundleGPU ] );
+
+		// executeBundles() resets the pipeline, bind groups, vertex and index buffers of the pass
+
+		renderContextData.currentSets = { attributes: {}, bindingGroups: [], pipeline: null, index: null };
 
 	}
 

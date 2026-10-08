@@ -7,6 +7,7 @@ import { Vector2 } from '../../math/Vector2.js';
 import { Vector4 } from '../../math/Vector4.js';
 
 let _screenSizeVec, _viewportVec;
+let _screenSizeNode = null, _viewportNode = null;
 
 /**
  * This node provides a collection of screen related metrics.
@@ -116,11 +117,13 @@ class ScreenNode extends Node {
 
 		if ( scope === ScreenNode.SIZE ) {
 
-			output = uniform( _screenSizeVec || ( _screenSizeVec = new Vector2() ) ).setGroup( renderGroup );
+			// one uniform for all materials, so their render-group uniforms can be shared
+
+			output = _screenSizeNode || ( _screenSizeNode = uniform( _screenSizeVec || ( _screenSizeVec = new Vector2() ) ).setGroup( renderGroup ) );
 
 		} else if ( scope === ScreenNode.VIEWPORT ) {
 
-			output = uniform( _viewportVec || ( _viewportVec = new Vector4() ) ).setGroup( renderGroup );
+			output = _viewportNode || ( _viewportNode = uniform( _viewportVec || ( _viewportVec = new Vector4() ) ).setGroup( renderGroup ) );
 
 		} else {
 

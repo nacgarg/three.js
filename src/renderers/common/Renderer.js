@@ -1,6 +1,7 @@
 import Animation from './Animation.js';
 import RenderObjects from './RenderObjects.js';
 import Attributes from './Attributes.js';
+import { AttributeType } from './Constants.js';
 import Geometries from './Geometries.js';
 import Info from './Info.js';
 import Pipelines from './Pipelines.js';
@@ -1438,11 +1439,31 @@ class Renderer {
 
 		const renderBundle = this._bundles.get( bundleGroup, camera, renderContext );
 		const renderBundleData = this.backend.get( renderBundle );
-		const renderBundleNeedsUpdate = this._bundleNeedsUpdate( bundleGroup, renderBundleData );
+		let renderBundleNeedsUpdate = this._bundleNeedsUpdate( bundleGroup, renderBundleData );
+
+		if ( renderBundleNeedsUpdate === false ) {
+
+			// refresh the render objects of the bundle. If the recorded commands no longer match them
+			// (material or bind groups changed), record the bundle again from the same render list
+
+			if ( this._updateBundle( bundleGroup, renderBundleData ) === false ) {
+
+				renderBundleData.renderObjects.length = 0;
+
+				renderBundleNeedsUpdate = true;
+
+			}
+
+		}
 
 		if ( renderBundleNeedsUpdate ) {
 
 			this.backend.beginBundle( renderContext );
+
+			// nested renders (e.g. shadow maps updated from a node's updateBefore() while the bundle
+			// is recorded) record their own bundles, so restore the outer one afterwards
+
+			const previousRenderBundle = this._currentRenderBundle;
 
 			this._currentRenderBundle = renderBundle;
 
@@ -1455,7 +1476,7 @@ class Renderer {
 			if ( this.opaque === true && opaqueObjects.length > 0 ) this._renderObjects( opaqueObjects, camera, sceneRef, lightsNode );
 			if ( this.transparent === true && transparentObjects.length > 0 ) this._renderTransparents( transparentObjects, transparentDoublePassObjects, camera, sceneRef, lightsNode );
 
-			this._currentRenderBundle = null;
+			this._currentRenderBundle = previousRenderBundle;
 
 			//
 
@@ -1463,34 +1484,49 @@ class Renderer {
 
 			renderBundleData.version = bundleGroup.version;
 
-		} else {
+			this._storeBundleState( renderBundleData );
 
-			const { renderObjects } = renderBundleData;
+		}
 
-			for ( let i = 0, l = renderObjects.length; i < l; i ++ ) {
+		this.backend.addBundle( renderContext, renderBundle );
 
-				const renderObject = renderObjects[ i ];
+	}
 
-				const refreshType = this._nodes.needsRefresh( renderObject );
+	/**
+	 * Stores the material versions and bind groups the given render bundle was recorded with.
+	 *
+	 * @private
+	 * @param {Object} renderBundleData - The backend data of the render bundle.
+	 */
+	_storeBundleState( renderBundleData ) {
 
-				if ( refreshType === RenderObjectRefreshType.FULL ) {
+		const renderObjects = renderBundleData.renderObjects;
 
-					this._nodes.updateBefore( renderObject );
+		const materialVersions = renderBundleData.materialVersions || ( renderBundleData.materialVersions = [] );
+		const bindGroups = renderBundleData.bindGroups || ( renderBundleData.bindGroups = [] );
+		const bindGroupVersions = renderBundleData.bindGroupVersions || ( renderBundleData.bindGroupVersions = [] );
 
-					this._geometries.updateForRender( renderObject );
-					this._nodes.updateForRender( renderObject );
-					this._bindings.updateForRender( renderObject );
+		materialVersions.length = 0;
+		bindGroups.length = 0;
+		bindGroupVersions.length = 0;
 
-					this._nodes.updateAfter( renderObject );
+		for ( let i = 0, l = renderObjects.length; i < l; i ++ ) {
 
-				} else if ( refreshType === RenderObjectRefreshType.SHARED ) {
+			const renderObject = renderObjects[ i ];
+			const material = renderObject._sourceMaterial !== null ? renderObject._sourceMaterial : renderObject.material;
 
-					this._nodes.updateBefore( renderObject );
+			materialVersions.push( material.version );
 
-					this._nodes.updateForRender( renderObject );
-					this._bindings.updateSharedForRender( renderObject );
+			const bindings = renderObject.getBindings();
 
-					this._nodes.updateAfter( renderObject );
+			for ( let j = 0, n = bindings.length; j < n; j ++ ) {
+
+				const bindGroup = bindings[ j ];
+
+				if ( bindGroups.includes( bindGroup ) === false ) {
+
+					bindGroups.push( bindGroup );
+					bindGroupVersions.push( bindGroup.version );
 
 				}
 
@@ -1498,7 +1534,284 @@ class Renderer {
 
 		}
 
-		this.backend.addBundle( renderContext, renderBundle );
+		renderBundleData.bindingsVersion = this._bindings.version;
+
+	}
+
+	/**
+	 * Refreshes the render objects of a recorded render bundle before it is executed again.
+	 *
+	 * Returns `false` if the bundle must be recorded again: a material of the bundle changed or a
+	 * bind group used by the bundle was re-created (e.g. a texture of a material was replaced),
+	 * so the recorded commands no longer match the render objects.
+	 *
+	 * @private
+	 * @param {BundleGroup} bundleGroup - The bundle group.
+	 * @param {Object} renderBundleData - The backend data of the render bundle.
+	 * @return {boolean} Whether the recorded render bundle is still valid or not.
+	 */
+	_updateBundle( bundleGroup, renderBundleData ) {
+
+		const { renderObjects, materialVersions } = renderBundleData;
+
+		const isStatic = bundleGroup.static === true;
+		const renderId = this._nodes.nodeFrame.renderId;
+
+		for ( let i = 0, l = renderObjects.length; i < l; i ++ ) {
+
+			const renderObject = renderObjects[ i ];
+			const sourceMaterial = renderObject._sourceMaterial;
+
+			if ( ( sourceMaterial !== null ? sourceMaterial : renderObject.material ).version !== materialVersions[ i ] ) return false;
+
+			// render objects drawn with an override material (e.g. shadow maps) are refreshed with the
+			// per-object state renderObject() would set up
+
+			const overrideState = sourceMaterial !== null ? this._applyOverrideMaterial( sourceMaterial, renderObject.material ) : null;
+
+			// static bundles: run the nodes updated before rendering first (once per material and render),
+			// since they can change values the change detection of needsRefresh() depends on
+
+			let updatedBefore = false;
+
+			if ( isStatic === true ) {
+
+				const monitor = renderObject.getMonitor();
+
+				if ( monitor.bundleRenderId !== renderId ) {
+
+					monitor.bundleRenderId = renderId;
+
+					this._nodes.updateBefore( renderObject );
+
+					updatedBefore = true;
+
+				}
+
+			}
+
+			const refreshType = this._nodes.needsRefresh( renderObject );
+
+			if ( refreshType === RenderObjectRefreshType.FULL ) {
+
+				if ( updatedBefore === false ) this._nodes.updateBefore( renderObject );
+
+				this._geometries.updateForRender( renderObject );
+				this._nodes.updateForRender( renderObject );
+				this._bindings.updateForRender( renderObject );
+
+				this._nodes.updateAfter( renderObject );
+
+			} else if ( refreshType === RenderObjectRefreshType.SHARED ) {
+
+				if ( updatedBefore === false ) this._nodes.updateBefore( renderObject );
+
+				if ( isStatic === true ) {
+
+					this._updateBundleResources( renderObject, renderId );
+
+					if ( this._hasDynamicGeometry( renderObject ) ) this._geometries.updateForRender( renderObject );
+
+					// nodes updated per object only affect the object-scope uniforms, which are not refreshed here
+
+					this._nodes.updateSharedForRender( renderObject );
+
+				} else {
+
+					this._nodes.updateForRender( renderObject );
+
+				}
+
+				this._bindings.updateSharedForRender( renderObject );
+
+				this._nodes.updateAfter( renderObject );
+
+			} else if ( isStatic === true ) {
+
+				this._updateBundleResources( renderObject, renderId );
+
+				if ( this._hasDynamicGeometry( renderObject ) ) this._geometries.updateForRender( renderObject );
+
+			}
+
+			if ( overrideState !== null ) this._restoreOverrideMaterial( renderObject.material, overrideState );
+
+		}
+
+		// bind groups re-created since the bundle was recorded (by the refresh above or by other render objects)
+
+		if ( renderBundleData.bindingsVersion !== this._bindings.version ) {
+
+			const { bindGroups, bindGroupVersions } = renderBundleData;
+
+			for ( let i = 0, l = bindGroups.length; i < l; i ++ ) {
+
+				if ( bindGroups[ i ].version !== bindGroupVersions[ i ] ) return false;
+
+			}
+
+			renderBundleData.bindingsVersion = this._bindings.version;
+
+		}
+
+		return true;
+
+	}
+
+	/**
+	 * Returns `true` if the given render object of a static bundle draws buffers that are updated
+	 * without a full refresh of the render object: instance attributes and indirect draw buffers.
+	 * Changes of other geometry attributes are detected by {@link NodeMaterialObserver#equals}.
+	 *
+	 * @private
+	 * @param {RenderObject} renderObject - The render object.
+	 * @return {boolean} Whether the geometry of the render object must be checked for updates.
+	 */
+	_hasDynamicGeometry( renderObject ) {
+
+		const object = renderObject.object;
+
+		return object.isInstancedMesh === true || object.isBatchedMesh === true || renderObject.geometry.indirect !== null;
+
+	}
+
+	/**
+	 * Uploads new versions of the textures and storage buffers tracked for a static render object,
+	 * see {@link NodeMaterialObserver#objectUniformsChanged}. If a texture was re-created, the render
+	 * objects sharing the material get a full refresh since their bind groups refer to the old one.
+	 *
+	 * @private
+	 * @param {RenderObject} renderObject - The render object.
+	 * @param {number} renderId - The current render ID.
+	 */
+	_updateBundleResources( renderObject, renderId ) {
+
+		const monitor = renderObject.getMonitor();
+
+		if ( monitor.resourcesRenderId !== renderId ) return;
+
+		monitor.resourcesRenderId = - 1;
+
+		const resources = monitor.objectUniforms.resources;
+
+		for ( let i = 0, l = resources.length; i < l; i ++ ) {
+
+			const resource = resources[ i ].value;
+
+			if ( resource.isTexture === true ) {
+
+				this._textures.updateTexture( resource );
+
+			} else if ( resource.isBufferAttribute === true ) {
+
+				this._attributes.update( resource, resource.isIndirectStorageBufferAttribute ? AttributeType.INDIRECT : AttributeType.STORAGE );
+
+			}
+
+		}
+
+		// a re-created texture (by this upload or an earlier one) requires new bind groups
+
+		const bindings = renderObject.getBindings();
+
+		for ( let i = 0, l = bindings.length; i < l; i ++ ) {
+
+			const groupBindings = bindings[ i ].bindings;
+
+			for ( let j = 0, n = groupBindings.length; j < n; j ++ ) {
+
+				const binding = groupBindings[ j ];
+
+				if ( binding.isSampledTexture === true && binding.texture !== null && binding.generation !== this._textures.get( binding.texture ).generation ) {
+
+					monitor.objectUniformsVersion ++;
+
+					return;
+
+				}
+
+			}
+
+		}
+
+	}
+
+	/**
+	 * Sets up the given override material for the given source material like {@link Renderer#renderObject}
+	 * does and returns the previous values, see {@link Renderer#_restoreOverrideMaterial}.
+	 *
+	 * @private
+	 * @param {Material} material - The source material.
+	 * @param {Material} overrideMaterial - The override material.
+	 * @return {Object} The previous values of the override material.
+	 */
+	_applyOverrideMaterial( material, overrideMaterial ) {
+
+		const state = {
+			colorNode: ( overrideMaterial.isNodeMaterial ) ? overrideMaterial.colorNode : null,
+			depthNode: ( overrideMaterial.isNodeMaterial ) ? overrideMaterial.depthNode : null,
+			positionNode: ( overrideMaterial.isNodeMaterial ) ? overrideMaterial.positionNode : null,
+			side: overrideMaterial.side,
+			displacementMap: overrideMaterial.displacementMap,
+			displacementScale: overrideMaterial.displacementScale,
+			displacementBias: overrideMaterial.displacementBias
+		};
+
+		if ( material.positionNode && material.positionNode.isNode ) {
+
+			overrideMaterial.positionNode = material.positionNode;
+
+		}
+
+		overrideMaterial.alphaTest = material.alphaTest;
+		overrideMaterial.alphaMap = material.alphaMap;
+		overrideMaterial.displacementMap = material.displacementMap;
+		overrideMaterial.displacementScale = material.displacementScale;
+		overrideMaterial.displacementBias = material.displacementBias;
+		overrideMaterial.transparent = material.transparent || material.transmission > 0 ||
+			( material.transmissionNode && material.transmissionNode.isNode ) ||
+			( material.backdropNode && material.backdropNode.isNode );
+
+		if ( overrideMaterial.isShadowPassMaterial ) {
+
+			const { colorNode, depthNode, positionNode } = this._getShadowNodes( material );
+
+			if ( this.shadowMap.type === VSMShadowMap ) {
+
+				overrideMaterial.side = ( material.shadowSide !== null ) ? material.shadowSide : material.side;
+
+			} else {
+
+				overrideMaterial.side = ( material.shadowSide !== null ) ? material.shadowSide : _shadowSide[ material.side ];
+
+			}
+
+			if ( colorNode !== null ) overrideMaterial.colorNode = colorNode;
+			if ( depthNode !== null ) overrideMaterial.depthNode = depthNode;
+			if ( positionNode !== null ) overrideMaterial.positionNode = positionNode;
+
+		}
+
+		return state;
+
+	}
+
+	/**
+	 * Restores the values of an override material changed by {@link Renderer#_applyOverrideMaterial}.
+	 *
+	 * @private
+	 * @param {Material} overrideMaterial - The override material.
+	 * @param {Object} state - The previous values.
+	 */
+	_restoreOverrideMaterial( overrideMaterial, state ) {
+
+		overrideMaterial.colorNode = state.colorNode;
+		overrideMaterial.depthNode = state.depthNode;
+		overrideMaterial.positionNode = state.positionNode;
+		overrideMaterial.side = state.side;
+		overrideMaterial.displacementMap = state.displacementMap;
+		overrideMaterial.displacementScale = state.displacementScale;
+		overrideMaterial.displacementBias = state.displacementBias;
 
 	}
 
@@ -1920,8 +2233,10 @@ class Renderer {
 			opaque: opaqueObjects
 		} = renderList;
 
-		if ( bundles.length > 0 ) this._renderBundles( bundles, sceneRef, lightsNode );
+		// bundles after the opaque objects (the background is drawn without depth test) and before the transparent ones
+
 		if ( this.opaque === true && opaqueObjects.length > 0 ) this._renderObjects( opaqueObjects, camera, sceneRef, lightsNode );
+		if ( bundles.length > 0 ) this._renderBundles( bundles, sceneRef, lightsNode );
 		if ( this.transparent === true && transparentObjects.length > 0 ) this._renderTransparents( transparentObjects, transparentDoublePassObjects, camera, sceneRef, lightsNode );
 
 		// finish render pass

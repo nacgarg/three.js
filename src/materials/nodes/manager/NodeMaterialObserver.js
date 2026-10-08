@@ -1,4 +1,5 @@
 import { RenderObjectRefreshType, DynamicDrawUsage } from '../../../constants.js';
+import { NodeUpdateType } from '../../../nodes/core/constants.js';
 
 const refreshUniforms = [
 	'alphaMap',
@@ -158,6 +159,53 @@ class NodeMaterialObserver {
 		 * @default 0
 		 */
 		this.renderId = 0;
+
+		/**
+		 * The object-scope bindings tracked for static content, see {@link NodeMaterialObserver#objectUniformsChanged}.
+		 *
+		 * @private
+		 * @type {?Object}
+		 * @default null
+		 */
+		this.objectUniforms = null;
+
+		/**
+		 * The render ID of the last comparison of the tracked object-scope bindings.
+		 *
+		 * @private
+		 * @type {number}
+		 * @default - 1
+		 */
+		this.objectUniformsRenderId = - 1;
+
+		/**
+		 * Incremented when the values of the tracked object-scope bindings change.
+		 *
+		 * @private
+		 * @type {number}
+		 * @default 0
+		 */
+		this.objectUniformsVersion = 0;
+
+		/**
+		 * The render ID of the last update of the nodes updated before rendering, used by
+		 * the renderer when refreshing static render bundles.
+		 *
+		 * @private
+		 * @type {number}
+		 * @default - 1
+		 */
+		this.bundleRenderId = - 1;
+
+		/**
+		 * The render ID in which a new version of a tracked texture or storage buffer was detected.
+		 * The renderer uploads it with the next render object of this observer.
+		 *
+		 * @private
+		 * @type {number}
+		 * @default - 1
+		 */
+		this.resourcesRenderId = - 1;
 
 	}
 
@@ -478,9 +526,11 @@ class NodeMaterialObserver {
 	 * @param {RenderObject} renderObject - The render object.
 	 * @param {Array<Light>} lightsData - The current material lights.
 	 * @param {number} renderId - The current render ID.
+	 * @param {boolean} [isStatic=false] - Whether the render object belongs to a static render bundle. Then geometry
+	 * attributes and instance buffers are not compared, the renderer uploads them without a full refresh.
 	 * @return {boolean} Whether the given render object is equal to its cached state or not.
 	 */
-	equals( renderObject, lightsData, renderId ) {
+	equals( renderObject, lightsData, renderId, isStatic = false ) {
 
 		const { object, material, geometry } = renderObject;
 
@@ -614,102 +664,109 @@ class NodeMaterialObserver {
 
 		}
 
-		const geometryData = this.getGeometryData( renderObject.geometry );
+		// the attributes of static render bundles are only uploaded where they are expected to
+		// change (instance and indirect buffers), see Renderer._updateBundle()
 
-		// check the geometry properties just once per render for all render objects
+		if ( isStatic === false ) {
 
-		if ( geometryData._renderId !== renderId ) {
+			const geometryData = this.getGeometryData( renderObject.geometry );
 
-			geometryData._renderId = renderId;
+			// check the geometry properties just once per render for all render objects
 
-			let changed = false;
+			if ( geometryData._renderId !== renderId ) {
 
-			// attributes
+				geometryData._renderId = renderId;
 
-			const attributes = geometry.attributes;
-			const storedAttributes = geometryData.attributes;
+				let changed = false;
 
-			let currentAttributeCount = 0;
-			let storedAttributeCount = 0;
+				// attributes
 
-			for ( const _ in attributes ) currentAttributeCount ++; // eslint-disable-line no-unused-vars
+				const attributes = geometry.attributes;
+				const storedAttributes = geometryData.attributes;
 
-			for ( const name in storedAttributes ) {
+				let currentAttributeCount = 0;
+				let storedAttributeCount = 0;
 
-				storedAttributeCount ++;
+				for ( const _ in attributes ) currentAttributeCount ++; // eslint-disable-line no-unused-vars
 
-				const storedAttributeData = storedAttributes[ name ];
-				const attribute = attributes[ name ];
+				for ( const name in storedAttributes ) {
 
-				if ( attribute === undefined ) {
+					storedAttributeCount ++;
 
-					// attribute was removed
-					delete storedAttributes[ name ];
+					const storedAttributeData = storedAttributes[ name ];
+					const attribute = attributes[ name ];
 
-					changed = true;
-					continue;
+					if ( attribute === undefined ) {
+
+						// attribute was removed
+						delete storedAttributes[ name ];
+
+						changed = true;
+						continue;
+
+					}
+
+					const id = attribute.isInterleavedBufferAttribute ? attribute.data.uuid : attribute.id;
+					const version = attribute.isInterleavedBufferAttribute ? attribute.data.version : attribute.version;
+
+					if ( storedAttributeData.id !== id || storedAttributeData.version !== version ) {
+
+						storedAttributeData.id = id;
+						storedAttributeData.version = version;
+
+						changed = true;
+
+					}
 
 				}
 
-				const id = attribute.isInterleavedBufferAttribute ? attribute.data.uuid : attribute.id;
-				const version = attribute.isInterleavedBufferAttribute ? attribute.data.version : attribute.version;
+				if ( storedAttributeCount !== currentAttributeCount ) {
 
-				if ( storedAttributeData.id !== id || storedAttributeData.version !== version ) {
-
-					storedAttributeData.id = id;
-					storedAttributeData.version = version;
+					geometryData.attributes = this.getAttributesData( attributes );
 
 					changed = true;
 
 				}
 
-			}
+				// check index
 
-			if ( storedAttributeCount !== currentAttributeCount ) {
+				const index = geometry.index;
+				const currentIndexId = index ? index.id : null;
+				const currentIndexVersion = index ? index.version : null;
 
-				geometryData.attributes = this.getAttributesData( attributes );
+				if ( geometryData.indexId !== currentIndexId || geometryData.indexVersion !== currentIndexVersion ) {
 
-				changed = true;
+					geometryData.indexId = currentIndexId;
+					geometryData.indexVersion = currentIndexVersion;
 
-			}
+					changed = true;
 
-			// check index
+				}
 
-			const index = geometry.index;
-			const currentIndexId = index ? index.id : null;
-			const currentIndexVersion = index ? index.version : null;
+				// check drawRange
 
-			if ( geometryData.indexId !== currentIndexId || geometryData.indexVersion !== currentIndexVersion ) {
+				if ( geometryData.drawRange.start !== geometry.drawRange.start || geometryData.drawRange.count !== geometry.drawRange.count ) {
 
-				geometryData.indexId = currentIndexId;
-				geometryData.indexVersion = currentIndexVersion;
+					geometryData.drawRange.start = geometry.drawRange.start;
+					geometryData.drawRange.count = geometry.drawRange.count;
 
-				changed = true;
+					changed = true;
 
-			}
+				}
 
-			// check drawRange
-
-			if ( geometryData.drawRange.start !== geometry.drawRange.start || geometryData.drawRange.count !== geometry.drawRange.count ) {
-
-				geometryData.drawRange.start = geometry.drawRange.start;
-				geometryData.drawRange.count = geometry.drawRange.count;
-
-				changed = true;
+				if ( changed === true ) geometryData._version ++;
 
 			}
 
-			if ( changed === true ) geometryData._version ++;
+			// a version mismatch means the geometry has changed since this render object was last refreshed
 
-		}
+			if ( renderObjectData.geometryVersion !== geometryData._version ) {
 
-		// a version mismatch means the geometry has changed since this render object was last refreshed
+				renderObjectData.geometryVersion = geometryData._version;
 
-		if ( renderObjectData.geometryVersion !== geometryData._version ) {
+				return false;
 
-			renderObjectData.geometryVersion = geometryData._version;
-
-			return false;
+			}
 
 		}
 
@@ -736,7 +793,7 @@ class NodeMaterialObserver {
 
 		// instancing
 
-		if ( object.isInstancedMesh === true ) {
+		if ( isStatic === false && object.isInstancedMesh === true ) {
 
 			const instanceColorVersion = object.instanceColor !== null ? object.instanceColor.version : null;
 			const morphTextureVersion = object.morphTexture !== null ? object.morphTexture.version : null;
@@ -778,6 +835,16 @@ class NodeMaterialObserver {
 		// lights
 
 		if ( renderObjectData.lights ) {
+
+			if ( renderObjectData.lights.length !== lightsData.length ) {
+
+				// lights were added or removed (render objects of static content are kept)
+
+				renderObjectData.lights = lightsData.map( ( lightData ) => Object.assign( {}, lightData ) );
+
+				return false;
+
+			}
 
 			for ( let i = 0; i < lightsData.length; i ++ ) {
 
@@ -918,7 +985,224 @@ class NodeMaterialObserver {
 	}
 
 	/**
+	 * Returns the object-scope bindings of the given render object whose values do not depend on
+	 * the render object itself, i.e. uniforms, textures and storage buffers in non-shared uniform groups
+	 * that are not written by a node updated per object. Used for static content with node materials.
+	 *
+	 * @private
+	 * @param {RenderObject} renderObject - The render object.
+	 * @return {Object} The tracked bindings and whether one of them is updated per frame or render.
+	 */
+	getObjectUniforms( renderObject ) {
+
+		const nodeBuilderState = renderObject.getNodeBuilderState();
+
+		// uniforms written by nodes that are updated per object (model matrices, material references,
+		// onObjectUpdate() callbacks) are covered by equals(), not tracked here
+
+		const ownedNodes = new Set();
+
+		const addOwned = ( node ) => {
+
+			if ( node.isUniformNode === true ) ownedNodes.add( node );
+
+			for ( const property in node ) {
+
+				const value = node[ property ];
+
+				if ( value !== null && typeof value === 'object' && value.isUniformNode === true ) ownedNodes.add( value );
+
+			}
+
+		};
+
+		for ( const node of nodeBuilderState.updateNodes ) if ( node.updateType === NodeUpdateType.OBJECT ) addOwned( node );
+		for ( const node of nodeBuilderState.updateBeforeNodes ) if ( node.updateBeforeType === NodeUpdateType.OBJECT ) addOwned( node );
+		for ( const node of nodeBuilderState.updateAfterNodes ) if ( node.updateAfterType === NodeUpdateType.OBJECT ) addOwned( node );
+
+		const uniforms = [];
+		const resources = [];
+		let dynamic = false;
+
+		for ( const bindGroup of renderObject.getBindings() ) {
+
+			for ( const binding of bindGroup.bindings ) {
+
+				if ( binding.groupNode !== undefined && binding.groupNode.shared === true ) continue;
+
+				if ( binding.isNodeUniformsGroup === true ) {
+
+					for ( const uniform of binding.uniforms ) {
+
+						const node = uniform.nodeUniform.node;
+
+						if ( ownedNodes.has( node ) ) continue;
+
+						if ( node.updateType === NodeUpdateType.FRAME || node.updateType === NodeUpdateType.RENDER ) {
+
+							// such nodes are updated after this check, so a change would be seen one render late
+
+							dynamic = true;
+
+						} else {
+
+							uniforms.push( { node, value: this.cloneUniformValue( node.value ) } );
+
+						}
+
+					}
+
+				} else if ( binding.isSampledTexture === true ) {
+
+					const node = binding.textureNode;
+
+					if ( ownedNodes.has( node ) === false && node.value !== null && node.value !== undefined ) {
+
+						resources.push( { node, value: node.value, version: node.value.version } );
+
+					}
+
+				} else if ( binding.isStorageBuffer === true ) {
+
+					const node = binding.nodeUniform;
+
+					if ( node !== undefined && node !== null && ownedNodes.has( node ) === false && node.value ) {
+
+						resources.push( { node, value: node.value, version: node.value.version } );
+
+					} else {
+
+						dynamic = true;
+
+					}
+
+				} else if ( binding.isUniformBuffer === true ) {
+
+					dynamic = true;
+
+				}
+
+			}
+
+		}
+
+		return { uniforms, resources, dynamic };
+
+	}
+
+	/**
+	 * Returns a copy of the given uniform value for change detection.
+	 *
+	 * @private
+	 * @param {any} value - The uniform value.
+	 * @return {any} The copy.
+	 */
+	cloneUniformValue( value ) {
+
+		if ( value !== null && typeof value === 'object' && typeof value.clone === 'function' && typeof value.equals === 'function' ) return value.clone();
+
+		return value;
+
+	}
+
+	/**
+	 * Returns `true` if the values of the object-scope uniforms of the given render object changed since
+	 * its last refresh. Values that do not depend on the render object are compared once per render
+	 * for all render objects sharing this observer. A new version of the same texture or storage
+	 * buffer only has to be uploaded, which is signaled with {@link NodeMaterialObserver#resourcesRenderId}.
+	 *
+	 * @param {RenderObject} renderObject - The render object.
+	 * @param {number} renderId - The current render ID.
+	 * @return {boolean} Whether the object-scope uniforms changed or not.
+	 */
+	objectUniformsChanged( renderObject, renderId ) {
+
+		if ( this.objectUniforms === null ) {
+
+			this.objectUniforms = this.getObjectUniforms( renderObject );
+			this.objectUniformsRenderId = renderId;
+
+		} else if ( this.objectUniformsRenderId !== renderId ) {
+
+			this.objectUniformsRenderId = renderId;
+
+			const { uniforms, resources } = this.objectUniforms;
+
+			let changed = false;
+
+			for ( let i = 0, l = uniforms.length; i < l; i ++ ) {
+
+				const entry = uniforms[ i ];
+				const value = entry.node.value;
+				const stored = entry.value;
+
+				if ( stored !== null && typeof stored === 'object' && stored.equals !== undefined && value !== null && typeof value === 'object' && stored.constructor === value.constructor ) {
+
+					if ( stored.equals( value ) === false ) {
+
+						stored.copy( value );
+						changed = true;
+
+					}
+
+				} else if ( stored !== value ) {
+
+					entry.value = this.cloneUniformValue( value );
+					changed = true;
+
+				}
+
+			}
+
+			for ( let i = 0, l = resources.length; i < l; i ++ ) {
+
+				const entry = resources[ i ];
+				const value = entry.node.value;
+
+				if ( value !== entry.value ) {
+
+					entry.value = value;
+					entry.version = value ? value.version : 0;
+					changed = true;
+
+				} else if ( value && value.version !== entry.version ) {
+
+					entry.version = value.version;
+					this.resourcesRenderId = renderId;
+
+				}
+
+			}
+
+			if ( changed === true ) this.objectUniformsVersion ++;
+
+		}
+
+		if ( this.objectUniforms.dynamic === true ) return true;
+
+		const data = this.getRenderObjectData( renderObject );
+
+		if ( data.objectUniformsVersion !== this.objectUniformsVersion ) {
+
+			data.objectUniformsVersion = this.objectUniformsVersion;
+
+			return true;
+
+		}
+
+		return false;
+
+	}
+
+	/**
 	 * Checks if the given render object requires a refresh.
+	 *
+	 * Render objects of static 3D objects ({@link Object3D#static}) and of static render bundles
+	 * ({@link BundleGroup#static}) are only refreshed when something they depend on changed: the
+	 * world matrix, the material properties, the render target size, the shadow maps of the lights
+	 * or the values of object-scope uniforms (see {@link NodeMaterialObserver#objectUniformsChanged}).
+	 * This also applies to node materials, whose render objects are otherwise refreshed every render.
+	 * Uniforms in shared groups (e.g. `renderGroup`) are refreshed every render.
 	 *
 	 * @param {RenderObject} renderObject - The render object.
 	 * @param {NodeFrame} nodeFrame - The current node frame.
@@ -926,10 +1210,62 @@ class NodeMaterialObserver {
 	 */
 	needsRefresh( renderObject, nodeFrame ) {
 
-		if ( this.hasNode || this.hasAnimation || this.hasDynamicInstancing( renderObject.object ) || this.firstInitialization( renderObject ) || this.needsVelocity( nodeFrame.renderer ) )
+		const isStatic = renderObject.object.static === true;
+		const isStaticBundle = renderObject.bundle !== null && renderObject.bundle.static === true;
+
+		if ( this.hasNode === true && isStatic === false && isStaticBundle === false )
+			return RenderObjectRefreshType.FULL;
+
+		if ( this.hasAnimation || this.hasDynamicInstancing( renderObject.object ) || this.needsVelocity( nodeFrame.renderer ) )
 			return RenderObjectRefreshType.FULL;
 
 		const { renderId } = nodeFrame;
+
+		if ( isStatic === true || isStaticBundle === true ) {
+
+			// static content
+
+			const firstInitialization = this.firstInitialization( renderObject );
+			const uniformsChanged = this.objectUniformsChanged( renderObject, renderId );
+
+			if ( firstInitialization === true ) return RenderObjectRefreshType.FULL;
+
+			const renderObjectData = this.getRenderObjectData( renderObject );
+
+			if ( isStatic === false && renderObjectData.version !== renderObject.bundle.version ) {
+
+				// the bundle was updated
+
+				renderObjectData.version = renderObject.bundle.version;
+
+				return RenderObjectRefreshType.FULL;
+
+			}
+
+			let refreshType = RenderObjectRefreshType.NONE;
+
+			if ( this.renderId !== renderId ) {
+
+				this.renderId = renderId;
+
+				refreshType = RenderObjectRefreshType.SHARED;
+
+			}
+
+			const lightsData = this.getLights( renderObject.lightsNode, renderId );
+
+			if ( this.equals( renderObject, lightsData, renderId, isStatic === false ) === false || uniformsChanged === true ) {
+
+				refreshType = RenderObjectRefreshType.FULL;
+
+			}
+
+			return refreshType;
+
+		}
+
+		if ( this.firstInitialization( renderObject ) )
+			return RenderObjectRefreshType.FULL;
 
 		let refreshType = RenderObjectRefreshType.NONE;
 
@@ -945,12 +1281,6 @@ class NodeMaterialObserver {
 			refreshType = RenderObjectRefreshType.SHARED;
 
 		}
-
-		const isStatic = renderObject.object.static === true;
-		const isBundle = renderObject.bundle !== null && renderObject.bundle.static === true && this.getRenderObjectData( renderObject ).version === renderObject.bundle.version;
-
-		if ( isStatic || isBundle )
-			return refreshType;
 
 		const lightsData = this.getLights( renderObject.lightsNode, renderId );
 

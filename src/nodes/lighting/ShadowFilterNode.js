@@ -7,6 +7,31 @@ import { renderGroup } from '../core/UniformGroupNode.js';
 import { screenCoordinate } from '../display/ScreenNode.js';
 import { interleavedGradientNoise, vogelDiskSample } from '../utils/PostProcessingUtils.js';
 
+const _shadowReferences = new WeakMap();
+
+/**
+ * Returns a reference node in the render group for the given property of a shadow or a shadow camera.
+ * The node is created once per object and property, so materials receiving the same shadows have the
+ * same render-group uniforms and share their uniform buffer instead of updating one each.
+ *
+ * @private
+ * @param {string} property - The property name.
+ * @param {string} uniformType - The uniform type.
+ * @param {Object} object - The shadow or shadow camera.
+ * @return {ReferenceNode} The reference node.
+ */
+export function getShadowReference( property, uniformType, object ) {
+
+	let references = _shadowReferences.get( object );
+
+	if ( references === undefined ) _shadowReferences.set( object, references = {} );
+
+	const key = property + ':' + uniformType;
+
+	return references[ key ] || ( references[ key ] = reference( property, uniformType, object ).setGroup( renderGroup ) );
+
+}
+
 /**
  * A shadow filtering function performing basic filtering. This is in fact an unfiltered version of the shadow map
  * with a binary `[0,1]` result.
@@ -61,8 +86,8 @@ export const PCFShadowFilter = /*@__PURE__*/ Fn( ( { depthTexture, shadowCoord, 
 
 	};
 
-	const mapSize = reference( 'mapSize', 'vec2', shadow ).setGroup( renderGroup );
-	const radius = reference( 'radius', 'float', shadow ).setGroup( renderGroup );
+	const mapSize = getShadowReference( 'mapSize', 'vec2', shadow );
+	const radius = getShadowReference( 'radius', 'float', shadow );
 
 	const texelSize = vec2( 1 ).div( mapSize );
 	const radiusScaled = radius.mul( texelSize.x );
