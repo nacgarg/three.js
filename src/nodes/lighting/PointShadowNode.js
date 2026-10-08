@@ -1,7 +1,6 @@
 import ShadowNode from './ShadowNode.js';
 import { uniform } from '../core/UniformNode.js';
 import { float, vec3, If, Fn } from '../tsl/TSLBase.js';
-import { reference } from '../accessors/ReferenceNode.js';
 import { cubeTexture } from '../accessors/CubeTextureNode.js';
 import { renderGroup } from '../core/UniformGroupNode.js';
 import { Matrix4 } from '../../math/Matrix4.js';
@@ -13,6 +12,30 @@ import { screenCoordinate } from '../display/ScreenNode.js';
 import { interleavedGradientNoise, vogelDiskSample } from '../utils/PostProcessingUtils.js';
 import { abs, normalize, cross } from '../math/MathNode.js';
 import { viewZToLogarithmicDepth, viewZToPerspectiveDepth, viewZToReversedPerspectiveDepth } from '../display/ViewportDepthNode.js';
+import { getShadowReference } from './ShadowFilterNode.js';
+
+const _cameraUniforms = new WeakMap();
+
+// render-group uniforms of a shadow camera, shared by all materials (see getShadowReference())
+
+function getShadowCameraUniforms( shadow ) {
+
+	let uniforms = _cameraUniforms.get( shadow );
+
+	if ( uniforms === undefined ) {
+
+		uniforms = {
+			near: uniform( 'float' ).setGroup( renderGroup ).onRenderUpdate( () => shadow.camera.near ),
+			far: uniform( 'float' ).setGroup( renderGroup ).onRenderUpdate( () => shadow.camera.far )
+		};
+
+		_cameraUniforms.set( shadow, uniforms );
+
+	}
+
+	return uniforms;
+
+}
 
 const _clearColor = /*@__PURE__*/ new Color();
 const _projScreenMatrix = /*@__PURE__*/ new Matrix4();
@@ -65,8 +88,8 @@ export const BasicPointShadowFilter = /*@__PURE__*/ Fn( ( { depthTexture, bd3D, 
  */
 export const PointShadowFilter = /*@__PURE__*/ Fn( ( { depthTexture, bd3D, dp, shadow } ) => {
 
-	const radius = reference( 'radius', 'float', shadow ).setGroup( renderGroup );
-	const mapSize = reference( 'mapSize', 'vec2', shadow ).setGroup( renderGroup );
+	const radius = getShadowReference( 'radius', 'float', shadow );
+	const mapSize = getShadowReference( 'mapSize', 'vec2', shadow );
 
 	const texelSize = radius.div( mapSize.x );
 
@@ -102,9 +125,8 @@ const pointShadowFilter = /*@__PURE__*/ Fn( ( { filterFn, depthTexture, shadowCo
 	const shadowPositionAbs = shadowPosition.abs().toConst();
 	const viewZ = shadowPositionAbs.x.max( shadowPositionAbs.y ).max( shadowPositionAbs.z );
 
-	const shadowCameraNear = uniform( 'float' ).setGroup( renderGroup ).onRenderUpdate( () => shadow.camera.near );
-	const shadowCameraFar = uniform( 'float' ).setGroup( renderGroup ).onRenderUpdate( () => shadow.camera.far );
-	const bias = reference( 'bias', 'float', shadow ).setGroup( renderGroup );
+	const { near: shadowCameraNear, far: shadowCameraFar } = getShadowCameraUniforms( shadow );
+	const bias = getShadowReference( 'bias', 'float', shadow );
 
 	const result = float( 1.0 ).toVar();
 

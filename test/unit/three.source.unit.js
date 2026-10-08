@@ -273,6 +273,9 @@ import './src/textures/VideoTexture.tests.js';
 //src/nodes/core
 import './src/nodes/core/NodeBuilder.tests.js';
 
+//src/nodes/lighting
+import './src/nodes/lighting/ShadowFilterNode.tests.js';
+
 //src/nodes/display
 import './src/nodes/display/ViewportTextureNode.tests.js';
 import './src/nodes/display/ViewportDepthTextureNode.tests.js';

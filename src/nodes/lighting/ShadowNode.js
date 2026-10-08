@@ -12,11 +12,10 @@ import { DepthTexture } from '../../textures/DepthTexture.js';
 import { Loop } from '../utils/LoopNode.js';
 import { screenCoordinate } from '../display/ScreenNode.js';
 import { Compatibility, GreaterEqualCompare, HalfFloatType, LessEqualCompare, LinearFilter, NearestFilter, PCFShadowMap, RGFormat, VSMShadowMap } from '../../constants.js';
-import { renderGroup } from '../core/UniformGroupNode.js';
 import { viewZToLogarithmicDepth, perspectiveDepthToViewZ, orthographicDepthToViewZ, viewZToOrthographicDepth } from '../display/ViewportDepthNode.js';
 import { lightShadowMatrix } from '../accessors/Lights.js';
 import { resetRendererAndSceneState, restoreRendererAndSceneState } from '../../renderers/common/RendererUtils.js';
-import { BasicShadowFilter, PCFShadowFilter, VSMShadowFilter } from './ShadowFilterNode.js';
+import { BasicShadowFilter, PCFShadowFilter, VSMShadowFilter, getShadowReference } from './ShadowFilterNode.js';
 import { positionLocal } from '../accessors/Position.js';
 import { uniform } from '../core/UniformNode.js';
 import { equirectDirection } from '../utils/EquirectUV.js';
@@ -282,7 +281,7 @@ class ShadowNode extends ShadowBaseNode {
 		const { shadow } = this;
 		const { renderer } = builder;
 
-		const bias = shadow.biasNode || reference( 'bias', 'float', shadow ).setGroup( renderGroup );
+		const bias = shadow.biasNode || getShadowReference( 'bias', 'float', shadow );
 
 		let shadowCoord = shadowPosition;
 		let coordZ;
@@ -301,8 +300,8 @@ class ShadowNode extends ShadowBaseNode {
 			// The normally available "cameraNear" and "cameraFar" nodes cannot be used here because they do not get
 			// updated to use the shadow camera. So, we have to declare our own "local" ones here.
 			// TODO: How do we get the cameraNear/cameraFar nodes to use the shadow camera so we don't have to declare local ones here?
-			const cameraNearLocal = reference( 'near', 'float', shadow.camera ).setGroup( renderGroup );
-			const cameraFarLocal = reference( 'far', 'float', shadow.camera ).setGroup( renderGroup );
+			const cameraNearLocal = getShadowReference( 'near', 'float', shadow.camera );
+			const cameraFarLocal = getShadowReference( 'far', 'float', shadow.camera );
 
 			coordZ = viewZToLogarithmicDepth( w.negate(), cameraNearLocal, cameraFarLocal );
 
@@ -428,9 +427,9 @@ class ShadowNode extends ShadowBaseNode {
 
 			}
 
-			const samples = reference( 'blurSamples', 'float', shadow ).setGroup( renderGroup );
-			const radius = reference( 'radius', 'float', shadow ).setGroup( renderGroup );
-			const size = reference( 'mapSize', 'vec2', shadow ).setGroup( renderGroup );
+			const samples = getShadowReference( 'blurSamples', 'float', shadow );
+			const radius = getShadowReference( 'radius', 'float', shadow );
+			const size = getShadowReference( 'mapSize', 'vec2', shadow );
 
 			const sharedContext = context( builder.getSharedContext() );
 
@@ -448,8 +447,8 @@ class ShadowNode extends ShadowBaseNode {
 
 		//
 
-		const shadowIntensity = reference( 'intensity', 'float', shadow ).setGroup( renderGroup );
-		const normalBias = reference( 'normalBias', 'float', shadow ).setGroup( renderGroup );
+		const shadowIntensity = getShadowReference( 'intensity', 'float', shadow );
+		const normalBias = getShadowReference( 'normalBias', 'float', shadow );
 
 		const shadowMatrix = lightShadowMatrix( light );
 		const shadowNormalBias = normalWorld.mul( normalBias );
