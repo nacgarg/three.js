@@ -1100,7 +1100,9 @@ class NodeMaterialObserver {
 
 			if ( node.isUniformNode === true ) ownedNodes.add( node );
 
-			for ( const property in node ) {
+			// own properties only (nodes inherit many enumerable methods from TSL)
+
+			for ( const property of Object.keys( node ) ) {
 
 				const value = node[ property ];
 
@@ -59285,7 +59287,9 @@ class NodeManager extends DataMap {
 
 				if ( shared === false ) {
 
-					for ( const property in node ) {
+					// own properties only (nodes inherit many enumerable methods from TSL)
+
+					for ( const property of Object.keys( node ) ) {
 
 						if ( isShared( node[ property ] ) ) {
 
