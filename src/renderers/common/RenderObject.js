@@ -951,7 +951,17 @@ class RenderObject {
 
 		if ( this.material.isShadowPassMaterial !== true ) {
 
-			cacheKey = this._nodes.getCacheKey( this.scene, this.lightsNode );
+			// the lights of the scene do not affect a fullscreen pass with a material that is not lit
+
+			if ( this.object.isQuadMesh === true && this.material.isNodeMaterial === true && this.material.lights !== true && this.renderer._quadFastPath === true ) {
+
+				cacheKey = this._nodes.getUnlitCacheKey( this.scene );
+
+			} else {
+
+				cacheKey = this._nodes.getCacheKey( this.scene, this.lightsNode );
+
+			}
 
 		}
 

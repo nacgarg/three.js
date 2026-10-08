@@ -6,7 +6,7 @@ import { GPUFeatureName, GPULoadOp, GPUStoreOp, GPUIndexFormat, GPUTextureViewDi
 import WGSLNodeBuilder from './nodes/WGSLNodeBuilder.js';
 import Backend from '../common/Backend.js';
 
-import WebGPUUtils, { submit } from './utils/WebGPUUtils.js';
+import WebGPUUtils, { submit, deferSubmit, submitDeferred, isDeferredBuffer } from './utils/WebGPUUtils.js';
 import WebGPUAttributeUtils from './utils/WebGPUAttributeUtils.js';
 import WebGPUBindingUtils from './utils/WebGPUBindingUtils.js';
 import WebGPUCapabilities from './utils/WebGPUCapabilities.js';
@@ -175,6 +175,16 @@ class WebGPUBackend extends Backend {
 		 * @type {Map<number,GPUBuffer>}
 		 */
 		this.occludedResolveCache = new Map();
+
+		/**
+		 * Whether the command buffers of fullscreen passes are submitted together
+		 * with the next GPU commands instead of with one `GPUQueue.submit()` per pass.
+		 *
+		 * @private
+		 * @type {boolean}
+		 * @default true
+		 */
+		this._deferSubmits = true;
 
 		// compatibility checks
 
@@ -550,6 +560,8 @@ class WebGPUBackend extends Backend {
 
 			if ( textureData.msaaTextures !== undefined ) {
 
+				submitDeferred( this.device );
+
 				for ( const texture of textureData.msaaTextures ) texture.destroy();
 
 				textureData.msaaTextures = undefined;
@@ -573,6 +585,8 @@ class WebGPUBackend extends Backend {
 			textureData.msaaFormat !== format ) {
 
 			if ( textureData.msaaTextures !== undefined ) {
+
+				submitDeferred( this.device );
 
 				for ( const texture of textureData.msaaTextures ) texture.destroy();
 
@@ -1131,6 +1145,19 @@ class WebGPUBackend extends Backend {
 		renderContextData.descriptor = descriptor;
 		renderContextData.encoder = encoder;
 
+		// the command buffer of a fullscreen pass is submitted together with the next GPU commands, see finishRender()
+
+		if ( this._deferSubmits === true && this.renderer._quadFastPath === true && renderContext.fullscreenPass === true && occlusionQueryCount === 0 && renderContextData.currentPass !== null ) {
+
+			if ( renderContextData.deferredBuffers ) renderContextData.deferredBuffers.length = 0;
+			else renderContextData.deferredBuffers = [];
+
+		} else {
+
+			renderContextData.deferredBuffers = null;
+
+		}
+
 		this._resetRenderContextData( renderContextData );
 
 	}
@@ -1387,6 +1414,15 @@ class WebGPUBackend extends Backend {
 	}
 
 	/**
+	 * Submits the command buffers of fullscreen passes whose submission was deferred.
+	 */
+	submitDeferred() {
+
+		submitDeferred( this.device );
+
+	}
+
+	/**
 	 * This method is executed at the end of a render call and finalizes work
 	 * after draw calls.
 	 *
@@ -1555,8 +1591,22 @@ class WebGPUBackend extends Backend {
 
 		}
 
-		submit( this.device, renderContextData.encoder.finish() );
+		if ( renderContextData.deferredBuffers ) {
 
+			// Post-processing chains render many fullscreen passes per frame. Their command buffers are
+			// submitted together, with the next GPU commands or at the end of the top-level render, which
+			// saves a GPUQueue.submit() per pass. Writes that could change what a deferred pass reads, and
+			// destroying resources it might use, submit the deferred passes first.
+
+			deferSubmit( this.device, renderContextData.encoder.finish(), renderContextData.deferredBuffers );
+
+			renderContextData.deferredBuffers.length = 0;
+
+		} else {
+
+			submit( this.device, renderContextData.encoder.finish() );
+
+		}
 
 		//
 
@@ -2351,6 +2401,33 @@ class WebGPUBackend extends Backend {
 
 				this._draw( renderObject, info, renderContextData, pipelineGPU, bindings, vertexBuffers, drawParams, renderContextData.currentPass, renderContextData.currentSets );
 
+				if ( renderContextData.deferredBuffers ) this._addUniformBuffers( bindings, renderContextData.deferredBuffers );
+
+			}
+
+		}
+
+	}
+
+	/**
+	 * Adds the GPU buffers of the uniform buffer bindings in the given bind groups to the given array.
+	 *
+	 * @private
+	 * @param {Array<BindGroup>} bindings - The bind groups.
+	 * @param {Array<GPUBuffer>} buffers - The array to add to.
+	 */
+	_addUniformBuffers( bindings, buffers ) {
+
+		for ( let i = 0, l = bindings.length; i < l; i ++ ) {
+
+			const groupBindings = bindings[ i ].bindings;
+
+			for ( let j = 0, jl = groupBindings.length; j < jl; j ++ ) {
+
+				const binding = groupBindings[ j ];
+
+				if ( binding.isUniformBuffer === true ) buffers.push( this.get( binding ).buffer );
+
 			}
 
 		}
@@ -2523,6 +2600,8 @@ class WebGPUBackend extends Backend {
 	 */
 	updateTexture( texture, options ) {
 
+		submitDeferred( this.device );
+
 		this.textureUtils.updateTexture( texture, options );
 
 	}
@@ -2545,6 +2624,8 @@ class WebGPUBackend extends Backend {
 	 * @param {boolean} [isDefaultTexture=false] - Whether the texture uses a default GPU texture or not.
 	 */
 	destroyTexture( texture, isDefaultTexture = false ) {
+
+		submitDeferred( this.device );
 
 		this.textureUtils.destroyTexture( texture, isDefaultTexture );
 
@@ -2729,6 +2810,10 @@ class WebGPUBackend extends Backend {
 
 		renderContextData.currentPass.executeBundles( [ this.get( bundle ).bundleGPU ] );
 
+		// the uniform buffers read by bundles are not tracked: submit the pass right away
+
+		renderContextData.deferredBuffers = null;
+
 		// executeBundles() resets the pipeline, bind groups, vertex and index buffers of the pass
 
 		renderContextData.currentSets = { attributes: {}, bindingGroups: [], pipeline: null, index: null };
@@ -2797,6 +2882,8 @@ class WebGPUBackend extends Backend {
 
 		const uniformBufferData = this.get( uniformBuffer );
 
+		submitDeferred( this.device );
+
 		uniformBufferData.buffer.destroy();
 
 		this.delete( uniformBuffer );
@@ -2837,6 +2924,10 @@ class WebGPUBackend extends Backend {
 	 *  @param {Buffer} binding - The buffer binding to update.
 	 */
 	updateBinding( binding ) {
+
+		// the write must not land before a deferred command that reads the buffer
+
+		if ( isDeferredBuffer( this.device, this.get( binding ).buffer ) ) submitDeferred( this.device );
 
 		this.bindingUtils.updateBinding( binding );
 
@@ -2914,6 +3005,8 @@ class WebGPUBackend extends Backend {
 	 */
 	updateAttribute( attribute ) {
 
+		submitDeferred( this.device );
+
 		this.attributeUtils.updateAttribute( attribute );
 
 	}
@@ -2925,6 +3018,8 @@ class WebGPUBackend extends Backend {
 	 */
 	destroyAttribute( attribute ) {
 
+		submitDeferred( this.device );
+
 		this.attributeUtils.destroyAttribute( attribute );
 
 	}
@@ -2935,6 +3030,8 @@ class WebGPUBackend extends Backend {
 	 * Triggers an update of the default render pass descriptor.
 	 */
 	updateSize() {
+
+		submitDeferred( this.device );
 
 		this.delete( this.renderer.getCanvasTarget() );
 
@@ -3248,6 +3345,8 @@ class WebGPUBackend extends Backend {
 	}
 
 	async dispose() {
+
+		if ( this.device !== null ) submitDeferred( this.device );
 
 		await super.dispose();
 

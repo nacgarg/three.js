@@ -7,6 +7,7 @@ import Info from './Info.js';
 import Pipelines from './Pipelines.js';
 import Bindings from './Bindings.js';
 import RenderLists from './RenderLists.js';
+import RenderList from './RenderList.js';
 import RenderContexts from './RenderContexts.js';
 import Textures from './Textures.js';
 import Background from './Background.js';
@@ -390,6 +391,26 @@ class Renderer {
 		 * @default null
 		 */
 		this._renderLists = null;
+
+		/**
+		 * The render lists of fullscreen quad renders, one per render call depth.
+		 * See {@link Renderer#_projectQuad}.
+		 *
+		 * @private
+		 * @type {Array<RenderList>}
+		 */
+		this._quadRenderLists = [];
+
+		/**
+		 * Whether a fullscreen quad (`QuadMesh`) without children is projected on
+		 * a fast path that skips the generic scene traversal and render list
+		 * management. The rendered result is the same as on the generic path.
+		 *
+		 * @private
+		 * @type {boolean}
+		 * @default true
+		 */
+		this._quadFastPath = true;
 
 		/**
 		 * A reference to a renderer module for managing render contexts.
@@ -2156,18 +2177,28 @@ class Renderer {
 
 		}
 
-		this._renderLists.update( nodeFrame.frameId );
+		let renderList;
 
-		const renderList = this._renderLists.get( scene, camera, this.lighting );
-		renderList.begin();
+		if ( scene.isQuadMesh === true && this._quadFastPath === true && scene.children.length === 0 && scene.isBundleGroup !== true && camera.isArrayCamera !== true && Array.isArray( scene.material ) === false ) {
 
-		this._projectObject( scene, camera, 0, renderList, renderContext.clippingContext );
+			renderList = this._projectQuad( scene, camera, renderContext.clippingContext );
 
-		renderList.finish();
+		} else {
 
-		if ( this.sortObjects === true ) {
+			this._renderLists.update( nodeFrame.frameId );
 
-			renderList.sort( this._opaqueSort, this._transparentSort );
+			renderList = this._renderLists.get( scene, camera, this.lighting );
+			renderList.begin();
+
+			this._projectObject( scene, camera, 0, renderList, renderContext.clippingContext );
+
+			renderList.finish();
+
+			if ( this.sortObjects === true ) {
+
+				renderList.sort( this._opaqueSort, this._transparentSort );
+
+			}
 
 		}
 
@@ -2255,6 +2286,10 @@ class Renderer {
 
 		renderContext.camera = null;
 
+		// unlike the render lists of scenes, a quad render list is not cleared when unused: release the quad and its material
+
+		if ( renderList.isQuadRenderList === true ) renderList.clear();
+
 		// restore render tree
 
 		nodeFrame.renderId = previousRenderId;
@@ -2284,6 +2319,10 @@ class Renderer {
 		//
 
 		this.inspector.finishRender( this.backend.getTimestampUID( renderContext ) );
+
+		// GPU commands the backend deferred during the render must be submitted before control returns to the application
+
+		if ( this._callDepth === - 1 ) this.backend.submitDeferred();
 
 		//
 
@@ -3059,6 +3098,7 @@ class Renderer {
 			this._nodes.dispose();
 			this._bindings.dispose();
 			this._renderLists.dispose();
+			this._quadRenderLists.length = 0;
 			this._renderContexts.dispose();
 			this._textures.dispose();
 
@@ -3577,6 +3617,59 @@ class Renderer {
 	async readRenderTargetPixelsAsync( renderTarget, x, y, width, height, textureIndex = 0, faceIndex = 0 ) {
 
 		return this.backend.copyTextureToBuffer( renderTarget.textures[ textureIndex ], x, y, width, height, faceIndex );
+
+	}
+
+	/**
+	 * Projects a fullscreen quad mesh without children and with a single material. This does
+	 * what {@link Renderer#_projectObject} does for such a mesh, into a render list that is reused
+	 * by every quad render at the current call depth. A single render item needs no sorting.
+	 *
+	 * @private
+	 * @param {QuadMesh} quad - The quad mesh.
+	 * @param {Camera} camera - The camera the quad is rendered with.
+	 * @param {ClippingContext} clippingContext - The current clipping context.
+	 * @return {RenderList} The render list.
+	 */
+	_projectQuad( quad, camera, clippingContext ) {
+
+		const lighting = this.lighting;
+
+		let renderList = this._quadRenderLists[ this._callDepth ];
+
+		if ( renderList === undefined ) {
+
+			renderList = new RenderList( lighting, quad, camera );
+			renderList.isQuadRenderList = true;
+
+			this._quadRenderLists[ this._callDepth ] = renderList;
+
+		}
+
+		renderList.lighting = lighting;
+		renderList.lightsNode = lighting.getNode( quad );
+		renderList.scene = quad;
+		renderList.camera = camera;
+
+		renderList.begin();
+
+		if ( quad.visible === true && quad.layers.test( camera.layers ) && ( quad.frustumCulled === false || quad.intersectsFrustum( _frustum ) ) ) {
+
+			const { geometry, material } = quad;
+
+			if ( this.sortObjects === true && geometry.boundingSphere === null ) geometry.computeBoundingSphere();
+
+			if ( material.visible ) {
+
+				renderList.push( quad, geometry, material, 0, 0, null, clippingContext );
+
+			}
+
+		}
+
+		renderList.finish();
+
+		return renderList;
 
 	}
 

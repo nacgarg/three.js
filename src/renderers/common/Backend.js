@@ -124,6 +124,14 @@ class Backend {
 	finishRender( /*renderContext*/ ) {}
 
 	/**
+	 * Submits GPU commands whose submission the backend has deferred, if any.
+	 * The renderer calls this method at the end of a top-level render call.
+	 *
+	 * @abstract
+	 */
+	submitDeferred() {}
+
+	/**
 	 * Sets the XR rendering destination.
 	 *
 	 * Backends that render directly into XR framebuffers can override this hook.

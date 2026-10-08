@@ -4,7 +4,7 @@ import {
 import { ColorManagement } from '../../../math/ColorManagement.js';
 
 import WebGPUTexturePassUtils from './WebGPUTexturePassUtils.js';
-import { submit } from './WebGPUUtils.js';
+import { submit, submitDeferred } from './WebGPUUtils.js';
 import GPUBufferDescriptor from '../descriptors/GPUBufferDescriptor.js';
 import GPUCommandEncoderDescriptor from '../descriptors/GPUCommandEncoderDescriptor.js';
 import GPUSamplerDescriptor from '../descriptors/GPUSamplerDescriptor.js';
@@ -483,6 +483,8 @@ class WebGPUTextureUtils {
 		const backend = this.backend;
 		const textureData = backend.get( texture );
 
+		submitDeferred( backend.device );
+
 		if ( textureData.texture !== undefined && isDefaultTexture === false && texture.isExternalTexture !== true && textureData.externalTexture !== true ) textureData.texture.destroy();
 
 		if ( textureData.msaaTexture !== undefined ) textureData.msaaTexture.destroy();
@@ -537,7 +539,13 @@ class WebGPUTextureUtils {
 
 		let colorBuffer = colorTextureData.texture;
 
-		if ( colorBuffer ) colorBuffer.destroy();
+		if ( colorBuffer ) {
+
+			submitDeferred( backend.device );
+
+			colorBuffer.destroy();
+
+		}
 
 		_textureDescriptor.label = 'colorBuffer';
 		_textureDescriptor.size.width = width;
