@@ -604,6 +604,11 @@ class GTAONode extends TempNode {
 
 		this._material.dispose();
 
+		// release the references to the node builder's context, which can retain the graph (and scene) it was built for
+
+		this._sharedContext = null;
+		this._material.contextNode = null;
+
 	}
 
 }
