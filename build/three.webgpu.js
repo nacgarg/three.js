@@ -31784,7 +31784,17 @@ class RenderObject {
 
 		if ( this.material.isShadowPassMaterial !== true ) {
 
-			cacheKey = this._nodes.getCacheKey( this.scene, this.lightsNode );
+			// the lights of the scene do not affect a fullscreen pass with a material that is not lit
+
+			if ( this.object.isQuadMesh === true && this.material.isNodeMaterial === true && this.material.lights !== true && this.renderer._quadFastPath === true ) {
+
+				cacheKey = this._nodes.getUnlitCacheKey( this.scene );
+
+			} else {
+
+				cacheKey = this._nodes.getCacheKey( this.scene, this.lightsNode );
+
+			}
 
 		}
 
@@ -58803,6 +58813,41 @@ class NodeManager extends DataMap {
 	}
 
 	/**
+	 * Returns the cache key of {@link NodeManager#getCacheKey} without the lights, for render
+	 * objects whose material is not affected by the lights of the scene. Computing the cache key
+	 * of a lights node is comparatively expensive, and unlike `getCacheKey()` this key is not
+	 * shared by the render objects of a render call, e.g. a fullscreen pass renders just one.
+	 *
+	 * @param {Scene} scene - The scene.
+	 * @return {number} The cache key.
+	 */
+	getUnlitCacheKey( scene ) {
+
+		_cacheKeyValues.push( this.renderer.getOutputRenderTarget() && this.renderer.getOutputRenderTarget().multiview ? 1 : 0 );
+		_cacheKeyValues.push( this.renderer.lighting.enabled ? 1 : 0 );
+
+		if ( this.renderer.lighting.enabled ) {
+
+			_cacheKeyValues.push( this.renderer.shadowMap.enabled ? 1 : 0 );
+			_cacheKeyValues.push( this.renderer.shadowMap.type );
+
+			const environmentNode = this.getEnvironmentNode( scene );
+			if ( environmentNode ) _cacheKeyValues.push( environmentNode.getCacheKey() );
+
+		}
+
+		const fogNode = this.getFogNode( scene );
+		if ( fogNode ) _cacheKeyValues.push( fogNode.getCacheKey() );
+
+		const cacheKey = hashArray( _cacheKeyValues );
+
+		_cacheKeyValues.length = 0;
+
+		return cacheKey;
+
+	}
+
+	/**
 	 * A boolean that indicates whether tone mapping should be enabled
 	 * or not.
 	 *
@@ -62777,6 +62822,26 @@ class Renderer {
 		this._renderLists = null;
 
 		/**
+		 * The render lists of fullscreen quad renders, one per render call depth.
+		 * See {@link Renderer#_projectQuad}.
+		 *
+		 * @private
+		 * @type {Array<RenderList>}
+		 */
+		this._quadRenderLists = [];
+
+		/**
+		 * Whether a fullscreen quad (`QuadMesh`) without children is projected on
+		 * a fast path that skips the generic scene traversal and render list
+		 * management. The rendered result is the same as on the generic path.
+		 *
+		 * @private
+		 * @type {boolean}
+		 * @default true
+		 */
+		this._quadFastPath = true;
+
+		/**
 		 * A reference to a renderer module for managing render contexts.
 		 *
 		 * @private
@@ -64541,18 +64606,28 @@ class Renderer {
 
 		}
 
-		this._renderLists.update( nodeFrame.frameId );
+		let renderList;
 
-		const renderList = this._renderLists.get( scene, camera, this.lighting );
-		renderList.begin();
+		if ( scene.isQuadMesh === true && this._quadFastPath === true && scene.children.length === 0 && scene.isBundleGroup !== true && camera.isArrayCamera !== true && Array.isArray( scene.material ) === false ) {
 
-		this._projectObject( scene, camera, 0, renderList, renderContext.clippingContext );
+			renderList = this._projectQuad( scene, camera, renderContext.clippingContext );
 
-		renderList.finish();
+		} else {
 
-		if ( this.sortObjects === true ) {
+			this._renderLists.update( nodeFrame.frameId );
 
-			renderList.sort( this._opaqueSort, this._transparentSort );
+			renderList = this._renderLists.get( scene, camera, this.lighting );
+			renderList.begin();
+
+			this._projectObject( scene, camera, 0, renderList, renderContext.clippingContext );
+
+			renderList.finish();
+
+			if ( this.sortObjects === true ) {
+
+				renderList.sort( this._opaqueSort, this._transparentSort );
+
+			}
 
 		}
 
@@ -64639,6 +64714,10 @@ class Renderer {
 		// retain the camera (and with it the camera's scene graph) once the render pass is finished
 
 		renderContext.camera = null;
+
+		// unlike the render lists of scenes, a quad render list is not cleared when unused: release the quad and its material
+
+		if ( renderList.isQuadRenderList === true ) renderList.clear();
 
 		// restore render tree
 
@@ -65444,6 +65523,7 @@ class Renderer {
 			this._nodes.dispose();
 			this._bindings.dispose();
 			this._renderLists.dispose();
+			this._quadRenderLists.length = 0;
 			this._renderContexts.dispose();
 			this._textures.dispose();
 
@@ -65962,6 +66042,59 @@ class Renderer {
 	async readRenderTargetPixelsAsync( renderTarget, x, y, width, height, textureIndex = 0, faceIndex = 0 ) {
 
 		return this.backend.copyTextureToBuffer( renderTarget.textures[ textureIndex ], x, y, width, height, faceIndex );
+
+	}
+
+	/**
+	 * Projects a fullscreen quad mesh without children and with a single material. This does
+	 * what {@link Renderer#_projectObject} does for such a mesh, into a render list that is reused
+	 * by every quad render at the current call depth. A single render item needs no sorting.
+	 *
+	 * @private
+	 * @param {QuadMesh} quad - The quad mesh.
+	 * @param {Camera} camera - The camera the quad is rendered with.
+	 * @param {ClippingContext} clippingContext - The current clipping context.
+	 * @return {RenderList} The render list.
+	 */
+	_projectQuad( quad, camera, clippingContext ) {
+
+		const lighting = this.lighting;
+
+		let renderList = this._quadRenderLists[ this._callDepth ];
+
+		if ( renderList === undefined ) {
+
+			renderList = new RenderList( lighting, quad, camera );
+			renderList.isQuadRenderList = true;
+
+			this._quadRenderLists[ this._callDepth ] = renderList;
+
+		}
+
+		renderList.lighting = lighting;
+		renderList.lightsNode = lighting.getNode( quad );
+		renderList.scene = quad;
+		renderList.camera = camera;
+
+		renderList.begin();
+
+		if ( quad.visible === true && quad.layers.test( camera.layers ) && ( quad.frustumCulled === false || quad.intersectsFrustum( _frustum ) ) ) {
+
+			const { geometry, material } = quad;
+
+			if ( this.sortObjects === true && geometry.boundingSphere === null ) geometry.computeBoundingSphere();
+
+			if ( material.visible ) {
+
+				renderList.push( quad, geometry, material, 0, 0, null, clippingContext );
+
+			}
+
+		}
+
+		renderList.finish();
+
+		return renderList;
 
 	}
 
