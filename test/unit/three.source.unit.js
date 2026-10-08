@@ -231,6 +231,7 @@ import './src/renderers/WebGLRenderTarget.tests.js';
 //src/renderers/common
 import './src/renderers/common/Bindings.tests.js';
 import './src/renderers/common/Geometries.tests.js';
+import './src/renderers/common/Pipelines.tests.js';
 import './src/renderers/common/QuadMesh.tests.js';
 
 //src/renderers/shaders
