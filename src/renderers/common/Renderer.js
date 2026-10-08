@@ -1,6 +1,7 @@
 import Animation from './Animation.js';
 import RenderObjects from './RenderObjects.js';
 import Attributes from './Attributes.js';
+import { AttributeType } from './Constants.js';
 import Geometries from './Geometries.js';
 import Info from './Info.js';
 import Pipelines from './Pipelines.js';
@@ -1553,6 +1554,9 @@ class Renderer {
 
 		const { renderObjects, materialVersions } = renderBundleData;
 
+		const isStatic = bundleGroup.static === true;
+		const renderId = this._nodes.nodeFrame.renderId;
+
 		for ( let i = 0, l = renderObjects.length; i < l; i ++ ) {
 
 			const renderObject = renderObjects[ i ];
@@ -1565,11 +1569,32 @@ class Renderer {
 
 			const overrideState = sourceMaterial !== null ? this._applyOverrideMaterial( sourceMaterial, renderObject.material ) : null;
 
+			// static bundles: run the nodes updated before rendering first (once per material and render),
+			// since they can change values the change detection of needsRefresh() depends on
+
+			let updatedBefore = false;
+
+			if ( isStatic === true ) {
+
+				const monitor = renderObject.getMonitor();
+
+				if ( monitor.bundleRenderId !== renderId ) {
+
+					monitor.bundleRenderId = renderId;
+
+					this._nodes.updateBefore( renderObject );
+
+					updatedBefore = true;
+
+				}
+
+			}
+
 			const refreshType = this._nodes.needsRefresh( renderObject );
 
 			if ( refreshType === RenderObjectRefreshType.FULL ) {
 
-				this._nodes.updateBefore( renderObject );
+				if ( updatedBefore === false ) this._nodes.updateBefore( renderObject );
 
 				this._geometries.updateForRender( renderObject );
 				this._nodes.updateForRender( renderObject );
@@ -1579,12 +1604,33 @@ class Renderer {
 
 			} else if ( refreshType === RenderObjectRefreshType.SHARED ) {
 
-				this._nodes.updateBefore( renderObject );
+				if ( updatedBefore === false ) this._nodes.updateBefore( renderObject );
 
-				this._nodes.updateForRender( renderObject );
+				if ( isStatic === true ) {
+
+					this._updateBundleResources( renderObject, renderId );
+
+					if ( this._hasDynamicGeometry( renderObject ) ) this._geometries.updateForRender( renderObject );
+
+					// nodes updated per object only affect the object-scope uniforms, which are not refreshed here
+
+					this._nodes.updateSharedForRender( renderObject );
+
+				} else {
+
+					this._nodes.updateForRender( renderObject );
+
+				}
+
 				this._bindings.updateSharedForRender( renderObject );
 
 				this._nodes.updateAfter( renderObject );
+
+			} else if ( isStatic === true ) {
+
+				this._updateBundleResources( renderObject, renderId );
+
+				if ( this._hasDynamicGeometry( renderObject ) ) this._geometries.updateForRender( renderObject );
 
 			}
 
@@ -1609,6 +1655,84 @@ class Renderer {
 		}
 
 		return true;
+
+	}
+
+	/**
+	 * Returns `true` if the given render object of a static bundle draws buffers that are updated
+	 * without a full refresh of the render object: instance attributes and indirect draw buffers.
+	 * Changes of other geometry attributes are detected by {@link NodeMaterialObserver#equals}.
+	 *
+	 * @private
+	 * @param {RenderObject} renderObject - The render object.
+	 * @return {boolean} Whether the geometry of the render object must be checked for updates.
+	 */
+	_hasDynamicGeometry( renderObject ) {
+
+		const object = renderObject.object;
+
+		return object.isInstancedMesh === true || object.isBatchedMesh === true || renderObject.geometry.indirect !== null;
+
+	}
+
+	/**
+	 * Uploads new versions of the textures and storage buffers tracked for a static render object,
+	 * see {@link NodeMaterialObserver#objectUniformsChanged}. If a texture was re-created, the render
+	 * objects sharing the material get a full refresh since their bind groups refer to the old one.
+	 *
+	 * @private
+	 * @param {RenderObject} renderObject - The render object.
+	 * @param {number} renderId - The current render ID.
+	 */
+	_updateBundleResources( renderObject, renderId ) {
+
+		const monitor = renderObject.getMonitor();
+
+		if ( monitor.resourcesRenderId !== renderId ) return;
+
+		monitor.resourcesRenderId = - 1;
+
+		const resources = monitor.objectUniforms.resources;
+
+		for ( let i = 0, l = resources.length; i < l; i ++ ) {
+
+			const resource = resources[ i ].value;
+
+			if ( resource.isTexture === true ) {
+
+				this._textures.updateTexture( resource );
+
+			} else if ( resource.isBufferAttribute === true ) {
+
+				this._attributes.update( resource, resource.isIndirectStorageBufferAttribute ? AttributeType.INDIRECT : AttributeType.STORAGE );
+
+			}
+
+		}
+
+		// a re-created texture (by this upload or an earlier one) requires new bind groups
+
+		const bindings = renderObject.getBindings();
+
+		for ( let i = 0, l = bindings.length; i < l; i ++ ) {
+
+			const groupBindings = bindings[ i ].bindings;
+
+			for ( let j = 0, n = groupBindings.length; j < n; j ++ ) {
+
+				const binding = groupBindings[ j ];
+
+				if ( binding.isSampledTexture === true && binding.texture !== null && binding.generation !== this._textures.get( binding.texture ).generation ) {
+
+					monitor.objectUniformsVersion ++;
+
+					return;
+
+				}
+
+			}
+
+		}
 
 	}
 

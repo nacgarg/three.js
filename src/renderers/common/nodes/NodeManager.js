@@ -1138,6 +1138,60 @@ class NodeManager extends DataMap {
 	}
 
 	/**
+	 * Updates the nodes of the given render object that are updated per frame or per render, and
+	 * the ones updated per object that write uniforms of shared groups (e.g. references in
+	 * `renderGroup`). Used when only the shared uniforms of the render object are refreshed:
+	 * the other per-object nodes only affect the object-scope uniforms.
+	 *
+	 * @param {RenderObject} renderObject - The render object.
+	 */
+	updateSharedForRender( renderObject ) {
+
+		const nodeFrame = this.getNodeFrameForRender( renderObject );
+		const nodeBuilderState = renderObject.getNodeBuilderState();
+
+		let nodes = nodeBuilderState.sharedUpdateNodes;
+
+		if ( nodes === null ) {
+
+			nodes = nodeBuilderState.sharedUpdateNodes = [];
+
+			const isShared = ( node ) => node !== null && typeof node === 'object' && node.isUniformNode === true && node.groupNode.shared === true;
+
+			for ( const node of nodeBuilderState.updateNodes ) {
+
+				let shared = node.getUpdateType( nodeFrame ) !== NodeUpdateType.OBJECT || isShared( node );
+
+				if ( shared === false ) {
+
+					for ( const property in node ) {
+
+						if ( isShared( node[ property ] ) ) {
+
+							shared = true;
+							break;
+
+						}
+
+					}
+
+				}
+
+				if ( shared === true ) nodes.push( node );
+
+			}
+
+		}
+
+		for ( let i = 0, l = nodes.length; i < l; i ++ ) {
+
+			nodeFrame.updateNode( nodes[ i ] );
+
+		}
+
+	}
+
+	/**
 	 * Returns the refresh type of the given render object.
 	 *
 	 * @param {RenderObject} renderObject - The render object.
