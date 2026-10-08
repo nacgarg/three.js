@@ -233,6 +233,7 @@ import './src/renderers/common/Bindings.tests.js';
 import './src/renderers/common/Geometries.tests.js';
 import './src/renderers/common/Pipelines.tests.js';
 import './src/renderers/common/QuadMesh.tests.js';
+import './src/renderers/common/RenderPipeline.tests.js';
 
 //src/renderers/shaders
 import './src/renderers/shaders/ShaderChunk.tests.js';
