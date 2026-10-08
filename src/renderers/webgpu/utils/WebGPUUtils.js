@@ -3,6 +3,10 @@ import { GPUPrimitiveTopology, GPUTextureFormat } from './WebGPUConstants.js';
 
 const _commandList = [ null ];
 
+// deferred command buffers and the uniform buffers they read, per device (see deferSubmit())
+
+const _deferredSubmits = new WeakMap();
+
 /**
  * A WebGPU backend utility module with common helpers.
  *
@@ -297,7 +301,8 @@ class WebGPUUtils {
 
 /**
  * Submits a single GPU command to the device queue using a shared, module-scoped
- * array to avoid per-call array allocations.
+ * array to avoid per-call array allocations. Commands whose submission was deferred
+ * with {@link deferSubmit} are submitted first, in the same call.
  *
  * @private
  * @param {GPUDevice} device - The GPU device.
@@ -305,11 +310,88 @@ class WebGPUUtils {
  */
 export function submit( device, command ) {
 
+	const deferred = _deferredSubmits.get( device );
+
+	if ( deferred !== undefined && deferred.commands.length > 0 ) {
+
+		deferred.commands.push( command );
+
+		submitDeferred( device );
+
+		return;
+
+	}
+
 	_commandList[ 0 ] = command;
 
 	device.queue.submit( _commandList );
 
 	_commandList[ 0 ] = null;
+
+}
+
+/**
+ * Defers the submission of a GPU command so that several commands are submitted with
+ * one `GPUQueue.submit()` call. The queue order is kept: deferred commands are submitted
+ * before any command passed to {@link submit}. Before a queue write to one of the given
+ * buffers, or a write to or the destruction of any other resource a deferred command might
+ * use, the deferred commands must be submitted with {@link submitDeferred}.
+ *
+ * @private
+ * @param {GPUDevice} device - The GPU device.
+ * @param {GPUCommandBuffer} command - The command buffer.
+ * @param {Array<GPUBuffer>} buffers - The uniform buffers the command reads.
+ */
+export function deferSubmit( device, command, buffers ) {
+
+	let deferred = _deferredSubmits.get( device );
+
+	if ( deferred === undefined ) {
+
+		deferred = { commands: [], buffers: new Set() };
+
+		_deferredSubmits.set( device, deferred );
+
+	}
+
+	deferred.commands.push( command );
+
+	for ( let i = 0, l = buffers.length; i < l; i ++ ) deferred.buffers.add( buffers[ i ] );
+
+}
+
+/**
+ * Submits the deferred GPU commands, if any.
+ *
+ * @private
+ * @param {GPUDevice} device - The GPU device.
+ */
+export function submitDeferred( device ) {
+
+	const deferred = _deferredSubmits.get( device );
+
+	if ( deferred === undefined || deferred.commands.length === 0 ) return;
+
+	device.queue.submit( deferred.commands );
+
+	deferred.commands.length = 0;
+	deferred.buffers.clear();
+
+}
+
+/**
+ * Returns `true` if a deferred GPU command reads the given buffer.
+ *
+ * @private
+ * @param {GPUDevice} device - The GPU device.
+ * @param {GPUBuffer} buffer - The buffer.
+ * @return {boolean} Whether a deferred command reads the buffer.
+ */
+export function isDeferredBuffer( device, buffer ) {
+
+	const deferred = _deferredSubmits.get( device );
+
+	return deferred !== undefined && deferred.buffers.has( buffer );
 
 }
 

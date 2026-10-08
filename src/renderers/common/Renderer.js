@@ -2320,6 +2320,10 @@ class Renderer {
 
 		this.inspector.finishRender( this.backend.getTimestampUID( renderContext ) );
 
+		// GPU commands the backend deferred during the render must be submitted before control returns to the application
+
+		if ( this._callDepth === - 1 ) this.backend.submitDeferred();
+
 		//
 
 		return renderContext;

@@ -281,6 +281,35 @@ export default QUnit.module( 'Renderers', () => {
 
 				} );
 
+				QUnit.test( 'submits deferred GPU commands at the end of a top-level render', async ( assert ) => {
+
+					const backend = createBackend();
+					const renderer = new Renderer( backend );
+
+					await renderer.init();
+
+					const depths = [];
+					backend.submitDeferred = () => depths.push( renderer._callDepth );
+
+					const outer = new QuadMesh( new NodeMaterial() );
+					const inner = new QuadMesh( new NodeMaterial() );
+
+					outer.onBeforeRender = () => {
+
+						inner.render( renderer );
+						inner.render( renderer );
+
+					};
+
+					renderer.setRenderTarget( new RenderTarget( 16, 8 ) );
+					outer.render( renderer );
+
+					assert.deepEqual( depths, [ - 1 ], 'Once, after the outer render.' );
+
+					renderer.dispose();
+
+				} );
+
 				QUnit.test( 'releases the quad after the render', async ( assert ) => {
 
 					const renderer = new Renderer( createBackend() );
