@@ -63314,6 +63314,11 @@ class Renderer {
 
 			this.backend.beginBundle( renderContext );
 
+			// nested renders (e.g. shadow maps updated from a node's updateBefore() while the bundle
+			// is recorded) record their own bundles, so restore the outer one afterwards
+
+			const previousRenderBundle = this._currentRenderBundle;
+
 			this._currentRenderBundle = renderBundle;
 
 			const {
@@ -63325,7 +63330,7 @@ class Renderer {
 			if ( this.opaque === true && opaqueObjects.length > 0 ) this._renderObjects( opaqueObjects, camera, sceneRef, lightsNode );
 			if ( this.transparent === true && transparentObjects.length > 0 ) this._renderTransparents( transparentObjects, transparentDoublePassObjects, camera, sceneRef, lightsNode );
 
-			this._currentRenderBundle = null;
+			this._currentRenderBundle = previousRenderBundle;
 
 			//
 
