@@ -1928,6 +1928,11 @@ class Renderer {
 
 		this.backend.finishRender( renderContext );
 
+		// render contexts are reused for every render with the same attachment state, so they must not
+		// retain the camera (and with it the camera's scene graph) once the render pass is finished
+
+		renderContext.camera = null;
+
 		// restore render tree
 
 		nodeFrame.renderId = previousRenderId;

@@ -1034,7 +1034,7 @@ class WebGLBackend extends Backend {
 	 */
 	_isRenderCameraDepthArray( renderContext ) {
 
-		return renderContext.depthTexture && renderContext.depthTexture.isArrayTexture && renderContext.camera.isArrayCamera;
+		return renderContext.depthTexture && renderContext.depthTexture.isArrayTexture && renderContext.camera !== null && renderContext.camera.isArrayCamera;
 
 	}
 
