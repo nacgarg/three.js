@@ -182,6 +182,11 @@ class Geometries extends DataMap {
 
 		this.info.memory.geometries ++;
 
+		// the attributes are captured instead of the render object: the listener lives as long as the
+		// (possibly shared) geometry, and a render object reference would retain its object, scene and camera
+
+		const renderObjectAttributes = renderObject.getAttributes();
+
 		const onDispose = () => {
 
 			this.info.memory.geometries --;
@@ -216,9 +221,9 @@ class Geometries extends DataMap {
 
 			// node attributes (TODO: Remove this bit once we support BufferAttribute.dispose())
 
-			const currentAttributes = new Set( Object.values( renderObject.geometry.attributes ) );
+			const currentAttributes = new Set( Object.values( geometry.attributes ) );
 
-			for ( const attribute of renderObject.getAttributes() ) {
+			for ( const attribute of renderObjectAttributes ) {
 
 				if ( currentAttributes.has( attribute ) === false ) {
 
