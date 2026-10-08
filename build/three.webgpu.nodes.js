@@ -52793,7 +52793,24 @@ class Matrix4NodeUniform extends Matrix4Uniform {
 
 let _id$5 = 0;
 
+/**
+ * Shared bind groups per render context. The cache key is derived from the ids of the uniform nodes, which are
+ * unique, so an entry can only be reused while those nodes are alive. Bind groups are therefore held weakly: a group
+ * stays shared as long as a node builder state or render object uses it and is evicted when it is collected.
+ * Otherwise, the cache would retain every shared bind group ever built, including its uniform nodes and whatever
+ * their update callbacks reference.
+ *
+ * @private
+ * @type {WeakMap<Object,Map<number,WeakRef<BindGroup>>>}
+ */
 const _bindingGroupsCache = new WeakMap();
+const _bindingGroupsRegistry = /*@__PURE__*/ new FinalizationRegistry( ( { cache, key } ) => {
+
+	const ref = cache.get( key );
+
+	if ( ref !== undefined && ref.deref() === undefined ) cache.delete( key );
+
+} );
 const _functionNodeCache = new WeakMap();
 
 const sharedNodeData = new WeakMap();
@@ -53405,13 +53422,13 @@ class NodeBuilder {
 
 					for ( const uniform of binding.uniforms ) {
 
-						cacheKeyString += uniform.nodeUniform.node.id;
+						cacheKeyString += uniform.nodeUniform.node.id + ',';
 
 					}
 
 				} else {
 
-					cacheKeyString += binding.nodeUniform.id;
+					cacheKeyString += binding.nodeUniform.id + ',';
 
 				}
 
@@ -53435,13 +53452,16 @@ class NodeBuilder {
 
 			const cacheKey = hashString( cacheKeyString );
 
-			bindGroup = bindingGroupsCache.get( cacheKey );
+			const bindGroupRef = bindingGroupsCache.get( cacheKey );
+
+			bindGroup = bindGroupRef !== undefined ? bindGroupRef.deref() : undefined;
 
 			if ( bindGroup === undefined ) {
 
 				bindGroup = new BindGroup( groupName, bindings );
 
-				bindingGroupsCache.set( cacheKey, bindGroup );
+				bindingGroupsCache.set( cacheKey, new WeakRef( bindGroup ) );
+				_bindingGroupsRegistry.register( bindGroup, { cache: bindingGroupsCache, key: cacheKey } );
 
 			}
 
