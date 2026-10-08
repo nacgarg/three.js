@@ -680,6 +680,41 @@ class NodeManager extends DataMap {
 	}
 
 	/**
+	 * Returns the cache key of {@link NodeManager#getCacheKey} without the lights, for render
+	 * objects whose material is not affected by the lights of the scene. Computing the cache key
+	 * of a lights node is comparatively expensive, and unlike `getCacheKey()` this key is not
+	 * shared by the render objects of a render call, e.g. a fullscreen pass renders just one.
+	 *
+	 * @param {Scene} scene - The scene.
+	 * @return {number} The cache key.
+	 */
+	getUnlitCacheKey( scene ) {
+
+		_cacheKeyValues.push( this.renderer.getOutputRenderTarget() && this.renderer.getOutputRenderTarget().multiview ? 1 : 0 );
+		_cacheKeyValues.push( this.renderer.lighting.enabled ? 1 : 0 );
+
+		if ( this.renderer.lighting.enabled ) {
+
+			_cacheKeyValues.push( this.renderer.shadowMap.enabled ? 1 : 0 );
+			_cacheKeyValues.push( this.renderer.shadowMap.type );
+
+			const environmentNode = this.getEnvironmentNode( scene );
+			if ( environmentNode ) _cacheKeyValues.push( environmentNode.getCacheKey() );
+
+		}
+
+		const fogNode = this.getFogNode( scene );
+		if ( fogNode ) _cacheKeyValues.push( fogNode.getCacheKey() );
+
+		const cacheKey = hashArray( _cacheKeyValues );
+
+		_cacheKeyValues.length = 0;
+
+		return cacheKey;
+
+	}
+
+	/**
 	 * A boolean that indicates whether tone mapping should be enabled
 	 * or not.
 	 *
