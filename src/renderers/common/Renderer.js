@@ -2012,6 +2012,7 @@ class Renderer {
 		const previousRenderContext = this._currentRenderContext;
 		const previousRenderObjectFunction = this._currentRenderObjectFunction;
 		const previousHandleObjectFunction = this._handleObjectFunction;
+		const previousRenderBundle = this._currentRenderBundle;
 
 		this.lighting.beginRender( scene );
 
@@ -2072,6 +2073,12 @@ class Renderer {
 		this._currentRenderContext = renderContext;
 		this._currentRenderObjectFunction = this._renderObjectFunction || this.renderObject;
 		this._handleObjectFunction = this._renderObjectDirect;
+
+		// a render started while a render bundle is recorded (e.g. a shadow map updated by a node's
+		// updateBefore() during the recording) draws into its own render pass: its render objects
+		// must not become content of the outer bundle
+
+		this._currentRenderBundle = null;
 
 		//
 
@@ -2254,6 +2261,7 @@ class Renderer {
 		this._currentRenderContext = previousRenderContext;
 		this._currentRenderObjectFunction = previousRenderObjectFunction;
 		this._handleObjectFunction = previousHandleObjectFunction;
+		this._currentRenderBundle = previousRenderBundle;
 
 		this.lighting.finishRender( scene );
 
