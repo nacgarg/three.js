@@ -39855,6 +39855,42 @@ class QuadMesh extends Mesh {
 		 */
 		this.isQuadMesh = true;
 
+		/**
+		 * The material the quad mesh was created with.
+		 *
+		 * @private
+		 * @type {Material}
+		 */
+		this._initialMaterial = this.material;
+
+		/**
+		 * The last rendered material.
+		 *
+		 * @private
+		 * @type {Material}
+		 */
+		this._renderedMaterial = this.material;
+
+		/**
+		 * Resets the material when the last rendered material is disposed. Quad meshes are often
+		 * shared module-level instances whose material is assigned right before rendering. Without
+		 * this, a disposed material and its node graph would stay referenced until the next render.
+		 *
+		 * @private
+		 * @type {Function}
+		 */
+		this._onMaterialDispose = () => {
+
+			const material = this._renderedMaterial;
+
+			material.removeEventListener( 'dispose', this._onMaterialDispose );
+
+			this._renderedMaterial = this._initialMaterial;
+
+			if ( this.material === material ) this.material = this._initialMaterial;
+
+		};
+
 	}
 
 	/**
@@ -39882,6 +39918,8 @@ class QuadMesh extends Mesh {
 	 */
 	render( renderer ) {
 
+		if ( this.material !== this._renderedMaterial ) this._trackMaterial( this.material );
+
 		const previousVertexNode = this.material.vertexNode;
 
 		this.material.vertexNode = _vertexNode;
@@ -39889,6 +39927,22 @@ class QuadMesh extends Mesh {
 		renderer.render( this, _camera );
 
 		this.material.vertexNode = previousVertexNode;
+
+	}
+
+	/**
+	 * Tracks the disposal of the given material if it isn't the initial one.
+	 *
+	 * @private
+	 * @param {Material} material - The material to track.
+	 */
+	_trackMaterial( material ) {
+
+		if ( this._renderedMaterial !== this._initialMaterial ) this._renderedMaterial.removeEventListener( 'dispose', this._onMaterialDispose );
+
+		if ( material !== this._initialMaterial ) material.addEventListener( 'dispose', this._onMaterialDispose );
+
+		this._renderedMaterial = material;
 
 	}
 
