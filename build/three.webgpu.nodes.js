@@ -14729,6 +14729,7 @@ class BuiltinNode extends Node {
 const builtin = /*@__PURE__*/ nodeProxy( BuiltinNode ).setParameterLength( 1 );
 
 let _screenSizeVec, _viewportVec;
+let _screenSizeNode = null, _viewportNode = null;
 
 /**
  * This node provides a collection of screen related metrics.
@@ -14838,11 +14839,13 @@ class ScreenNode extends Node {
 
 		if ( scope === ScreenNode.SIZE ) {
 
-			output = uniform( _screenSizeVec || ( _screenSizeVec = new Vector2() ) ).setGroup( renderGroup );
+			// one uniform for all materials, so their render-group uniforms can be shared
+
+			output = _screenSizeNode || ( _screenSizeNode = uniform( _screenSizeVec || ( _screenSizeVec = new Vector2() ) ).setGroup( renderGroup ) );
 
 		} else if ( scope === ScreenNode.VIEWPORT ) {
 
-			output = uniform( _viewportVec || ( _viewportVec = new Vector4() ) ).setGroup( renderGroup );
+			output = _viewportNode || ( _viewportNode = uniform( _viewportVec || ( _viewportVec = new Vector4() ) ).setGroup( renderGroup ) );
 
 		} else {
 
@@ -47163,6 +47166,31 @@ class ShadowBaseNode extends Node {
  */
 const shadowPositionWorld = /*@__PURE__*/ property( 'vec3', 'shadowPositionWorld' );
 
+const _shadowReferences = new WeakMap();
+
+/**
+ * Returns a reference node in the render group for the given property of a shadow or a shadow camera.
+ * The node is created once per object and property, so materials receiving the same shadows have the
+ * same render-group uniforms and share their uniform buffer instead of updating one each.
+ *
+ * @private
+ * @param {string} property - The property name.
+ * @param {string} uniformType - The uniform type.
+ * @param {Object} object - The shadow or shadow camera.
+ * @return {ReferenceNode} The reference node.
+ */
+function getShadowReference( property, uniformType, object ) {
+
+	let references = _shadowReferences.get( object );
+
+	if ( references === undefined ) _shadowReferences.set( object, references = {} );
+
+	const key = property + ':' + uniformType;
+
+	return references[ key ] || ( references[ key ] = reference( property, uniformType, object ).setGroup( renderGroup ) );
+
+}
+
 /**
  * A shadow filtering function performing basic filtering. This is in fact an unfiltered version of the shadow map
  * with a binary `[0,1]` result.
@@ -47217,8 +47245,8 @@ const PCFShadowFilter = /*@__PURE__*/ Fn( ( { depthTexture, shadowCoord, shadow,
 
 	};
 
-	const mapSize = reference( 'mapSize', 'vec2', shadow ).setGroup( renderGroup );
-	const radius = reference( 'radius', 'float', shadow ).setGroup( renderGroup );
+	const mapSize = getShadowReference( 'mapSize', 'vec2', shadow );
+	const radius = getShadowReference( 'radius', 'float', shadow );
 
 	const texelSize = vec2( 1 ).div( mapSize );
 	const radiusScaled = radius.mul( texelSize.x );
@@ -47543,7 +47571,7 @@ class ShadowNode extends ShadowBaseNode {
 		const { shadow } = this;
 		const { renderer } = builder;
 
-		const bias = shadow.biasNode || reference( 'bias', 'float', shadow ).setGroup( renderGroup );
+		const bias = shadow.biasNode || getShadowReference( 'bias', 'float', shadow );
 
 		let shadowCoord = shadowPosition;
 		let coordZ;
@@ -47562,8 +47590,8 @@ class ShadowNode extends ShadowBaseNode {
 			// The normally available "cameraNear" and "cameraFar" nodes cannot be used here because they do not get
 			// updated to use the shadow camera. So, we have to declare our own "local" ones here.
 			// TODO: How do we get the cameraNear/cameraFar nodes to use the shadow camera so we don't have to declare local ones here?
-			const cameraNearLocal = reference( 'near', 'float', shadow.camera ).setGroup( renderGroup );
-			const cameraFarLocal = reference( 'far', 'float', shadow.camera ).setGroup( renderGroup );
+			const cameraNearLocal = getShadowReference( 'near', 'float', shadow.camera );
+			const cameraFarLocal = getShadowReference( 'far', 'float', shadow.camera );
 
 			coordZ = viewZToLogarithmicDepth( w.negate(), cameraNearLocal, cameraFarLocal );
 
@@ -47689,9 +47717,9 @@ class ShadowNode extends ShadowBaseNode {
 
 			}
 
-			const samples = reference( 'blurSamples', 'float', shadow ).setGroup( renderGroup );
-			const radius = reference( 'radius', 'float', shadow ).setGroup( renderGroup );
-			const size = reference( 'mapSize', 'vec2', shadow ).setGroup( renderGroup );
+			const samples = getShadowReference( 'blurSamples', 'float', shadow );
+			const radius = getShadowReference( 'radius', 'float', shadow );
+			const size = getShadowReference( 'mapSize', 'vec2', shadow );
 
 			const sharedContext = context( builder.getSharedContext() );
 
@@ -47709,8 +47737,8 @@ class ShadowNode extends ShadowBaseNode {
 
 		//
 
-		const shadowIntensity = reference( 'intensity', 'float', shadow ).setGroup( renderGroup );
-		const normalBias = reference( 'normalBias', 'float', shadow ).setGroup( renderGroup );
+		const shadowIntensity = getShadowReference( 'intensity', 'float', shadow );
+		const normalBias = getShadowReference( 'normalBias', 'float', shadow );
 
 		const shadowMatrix = lightShadowMatrix( light );
 		const shadowNormalBias = normalWorld.mul( normalBias );
@@ -48099,6 +48127,29 @@ class ShadowNode extends ShadowBaseNode {
  */
 const shadow = ( light, shadow ) => new ShadowNode( light, shadow );
 
+const _cameraUniforms = new WeakMap();
+
+// render-group uniforms of a shadow camera, shared by all materials (see getShadowReference())
+
+function getShadowCameraUniforms( shadow ) {
+
+	let uniforms = _cameraUniforms.get( shadow );
+
+	if ( uniforms === undefined ) {
+
+		uniforms = {
+			near: uniform( 'float' ).setGroup( renderGroup ).onRenderUpdate( () => shadow.camera.near ),
+			far: uniform( 'float' ).setGroup( renderGroup ).onRenderUpdate( () => shadow.camera.far )
+		};
+
+		_cameraUniforms.set( shadow, uniforms );
+
+	}
+
+	return uniforms;
+
+}
+
 const _clearColor$1 = /*@__PURE__*/ new Color();
 const _projScreenMatrix$1 = /*@__PURE__*/ new Matrix4();
 const _lightPositionWorld = /*@__PURE__*/ new Vector3();
@@ -48150,8 +48201,8 @@ const BasicPointShadowFilter = /*@__PURE__*/ Fn( ( { depthTexture, bd3D, dp } ) 
  */
 const PointShadowFilter = /*@__PURE__*/ Fn( ( { depthTexture, bd3D, dp, shadow } ) => {
 
-	const radius = reference( 'radius', 'float', shadow ).setGroup( renderGroup );
-	const mapSize = reference( 'mapSize', 'vec2', shadow ).setGroup( renderGroup );
+	const radius = getShadowReference( 'radius', 'float', shadow );
+	const mapSize = getShadowReference( 'mapSize', 'vec2', shadow );
 
 	const texelSize = radius.div( mapSize.x );
 
@@ -48187,9 +48238,8 @@ const pointShadowFilter = /*@__PURE__*/ Fn( ( { filterFn, depthTexture, shadowCo
 	const shadowPositionAbs = shadowPosition.abs().toConst();
 	const viewZ = shadowPositionAbs.x.max( shadowPositionAbs.y ).max( shadowPositionAbs.z );
 
-	const shadowCameraNear = uniform( 'float' ).setGroup( renderGroup ).onRenderUpdate( () => shadow.camera.near );
-	const shadowCameraFar = uniform( 'float' ).setGroup( renderGroup ).onRenderUpdate( () => shadow.camera.far );
-	const bias = reference( 'bias', 'float', shadow ).setGroup( renderGroup );
+	const { near: shadowCameraNear, far: shadowCameraFar } = getShadowCameraUniforms( shadow );
+	const bias = getShadowReference( 'bias', 'float', shadow );
 
 	const result = float( 1.0 ).toVar();
 
