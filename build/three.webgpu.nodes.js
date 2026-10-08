@@ -33118,6 +33118,16 @@ class Pipelines extends DataMap {
 		this.bindings = null;
 
 		/**
+		 * Releases the pipeline of a compute node that was garbage collected without
+		 * being disposed. Compute pipelines are cached by the node's id, so without this
+		 * the cache entry and its program would never be removed.
+		 *
+		 * @private
+		 * @type {FinalizationRegistry<Object>}
+		 */
+		this._computeNodeRegistry = new FinalizationRegistry( ( data ) => this._releaseData( data ) );
+
+		/**
 		 * Internal cache for maintaining pipelines.
 		 * The key of the map is a cache key, the value the pipeline.
 		 *
@@ -33157,6 +33167,8 @@ class Pipelines extends DataMap {
 		if ( this._needsComputeUpdate( computeNode ) ) {
 
 			const previousPipeline = data.pipeline;
+
+			if ( previousPipeline === undefined ) this._computeNodeRegistry.register( computeNode, data, computeNode );
 
 			if ( previousPipeline ) {
 
@@ -33338,7 +33350,23 @@ class Pipelines extends DataMap {
 	 */
 	delete( object ) {
 
-		const pipeline = this.get( object ).pipeline;
+		this._computeNodeRegistry.unregister( object );
+
+		this._releaseData( this.get( object ) );
+
+		return super.delete( object );
+
+	}
+
+	/**
+	 * Releases the pipeline referenced by the given pipeline data.
+	 *
+	 * @private
+	 * @param {Object} data - The pipeline data of a render object or compute node.
+	 */
+	_releaseData( data ) {
+
+		const pipeline = data.pipeline;
 
 		if ( pipeline ) {
 
@@ -33366,9 +33394,9 @@ class Pipelines extends DataMap {
 
 			}
 
-		}
+			data.pipeline = undefined;
 
-		return super.delete( object );
+		}
 
 	}
 
