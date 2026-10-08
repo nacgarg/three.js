@@ -47,9 +47,10 @@ function createSetup( { bundleStatic = true } = {} ) {
 
 	const lightsNode = { getBuiltinLights: () => [] };
 
-	const createRenderObject = () => ( {
+	const createRenderObject = ( sourceMaterial = null ) => ( {
 		object,
 		material,
+		_sourceMaterial: sourceMaterial,
 		geometry: new BufferGeometry(),
 		scene,
 		bundle,
@@ -65,7 +66,7 @@ function createSetup( { bundleStatic = true } = {} ) {
 
 	const refresh = ( renderObject ) => observer.needsRefresh( renderObject, nodeFrame );
 
-	return { observer, nodeFrame, refresh, createRenderObject, object, bundle, material, uniformNode, vectorNode, textureNode };
+	return { observer, nodeFrame, refresh, createRenderObject, object, bundle, material, uniformNode, vectorNode, textureNode, nodeBuilderState };
 
 }
 
@@ -152,6 +153,55 @@ export default QUnit.module( 'Materials', () => {
 				textureNode.value = new Texture();
 
 				assert.strictEqual( refresh( renderObject ), FULL, 'A replaced texture requires a full refresh.' );
+
+			} );
+
+			QUnit.test( 'textures of texture nodes updated per object are tracked', ( assert ) => {
+
+				// e.g. a texture node with a uv transform: updated per object, but the texture is the same for all
+
+				const { observer, nodeFrame, refresh, createRenderObject, textureNode, nodeBuilderState } = createSetup();
+
+				textureNode.updateType = NodeUpdateType.OBJECT;
+				nodeBuilderState.updateNodes.push( textureNode );
+
+				const renderObject = createRenderObject();
+
+				nodeFrame.renderId ++;
+				refresh( renderObject );
+
+				nodeFrame.renderId ++;
+				textureNode.value.needsUpdate = true;
+				refresh( renderObject );
+
+				assert.strictEqual( observer.resourcesRenderId, nodeFrame.renderId, 'The texture upload is requested.' );
+
+				nodeFrame.renderId ++;
+				textureNode.value = new Texture();
+
+				assert.strictEqual( refresh( renderObject ), FULL, 'A replaced texture requires a full refresh.' );
+
+			} );
+
+			QUnit.test( 'render objects drawn with an override material depend on their own material', ( assert ) => {
+
+				const { nodeFrame, refresh, createRenderObject } = createSetup();
+
+				const sourceMaterial = new Material();
+				const renderObject = createRenderObject( sourceMaterial );
+
+				nodeFrame.renderId ++;
+				refresh( renderObject );
+
+				nodeFrame.renderId ++;
+				assert.strictEqual( refresh( renderObject ), SHARED, 'Unchanged.' );
+
+				nodeFrame.renderId ++;
+				sourceMaterial.alphaTest = 0.5;
+				assert.strictEqual( refresh( renderObject ), FULL, 'A changed source material requires a full refresh.' );
+
+				nodeFrame.renderId ++;
+				assert.strictEqual( refresh( renderObject ), SHARED );
 
 			} );
 

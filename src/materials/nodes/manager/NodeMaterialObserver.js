@@ -521,34 +521,16 @@ class NodeMaterialObserver {
 	}
 
 	/**
-	 * Returns `true` if the given render object has not changed its state.
+	 * Compares the properties of the given material with their state of the previous render
+	 * (once per render) and returns a version that is incremented whenever they changed.
 	 *
-	 * @param {RenderObject} renderObject - The render object.
-	 * @param {Array<Light>} lightsData - The current material lights.
+	 * @param {Material} material - The material.
 	 * @param {number} renderId - The current render ID.
-	 * @param {boolean} [isStatic=false] - Whether the render object belongs to a static render bundle. Then geometry
-	 * attributes and instance buffers are not compared, the renderer uploads them without a full refresh.
-	 * @return {boolean} Whether the given render object is equal to its cached state or not.
+	 * @return {number} The version of the material properties.
 	 */
-	equals( renderObject, lightsData, renderId, isStatic = false ) {
+	getMaterialVersion( material, renderId ) {
 
-		const { object, material, geometry } = renderObject;
-
-		const renderObjectData = this.getRenderObjectData( renderObject );
-
-		// world matrix
-
-		if ( renderObjectData.worldMatrix.equals( object.matrixWorld ) !== true ) {
-
-			renderObjectData.worldMatrix.copy( object.matrixWorld );
-
-			return false;
-
-		}
-
-		// material
-
-		const materialData = this.getMaterialData( renderObject.material );
+		const materialData = this.getMaterialData( material );
 
 		// check the material properties just once per render for all render objects
 
@@ -632,11 +614,45 @@ class NodeMaterialObserver {
 
 		}
 
+		return materialData._version;
+
+	}
+
+	/**
+	 * Returns `true` if the given render object has not changed its state.
+	 *
+	 * @param {RenderObject} renderObject - The render object.
+	 * @param {Array<Light>} lightsData - The current material lights.
+	 * @param {number} renderId - The current render ID.
+	 * @param {boolean} [isStatic=false] - Whether the render object belongs to a static render bundle. Then geometry
+	 * attributes and instance buffers are not compared, the renderer uploads them without a full refresh.
+	 * @return {boolean} Whether the given render object is equal to its cached state or not.
+	 */
+	equals( renderObject, lightsData, renderId, isStatic = false ) {
+
+		const { object, material, geometry } = renderObject;
+
+		const renderObjectData = this.getRenderObjectData( renderObject );
+
+		// world matrix
+
+		if ( renderObjectData.worldMatrix.equals( object.matrixWorld ) !== true ) {
+
+			renderObjectData.worldMatrix.copy( object.matrixWorld );
+
+			return false;
+
+		}
+
+		// material
+
+		const materialVersion = this.getMaterialVersion( material, renderId );
+
 		// a version mismatch means the material has changed since this render object was last refreshed
 
-		if ( renderObjectData.materialVersion !== materialData._version ) {
+		if ( renderObjectData.materialVersion !== materialVersion ) {
 
-			renderObjectData.materialVersion = materialData._version;
+			renderObjectData.materialVersion = materialVersion;
 
 			return false;
 
@@ -1002,6 +1018,10 @@ class NodeMaterialObserver {
 
 		const ownedNodes = new Set();
 
+		// uniforms written by another node updated per object, e.g. the node of a material reference
+
+		const referencedNodes = new Set();
+
 		const addOwned = ( node ) => {
 
 			if ( node.isUniformNode === true ) ownedNodes.add( node );
@@ -1010,7 +1030,15 @@ class NodeMaterialObserver {
 
 				const value = node[ property ];
 
-				if ( value !== null && typeof value === 'object' && value.isUniformNode === true ) ownedNodes.add( value );
+				if ( value !== null && typeof value === 'object' && value.isUniformNode === true ) {
+
+					ownedNodes.add( value );
+
+					// a texture node refers to the texture node it was sampled from, which is not a per-object value
+
+					if ( node.isTextureNode !== true ) referencedNodes.add( value );
+
+				}
 
 			}
 
@@ -1054,9 +1082,11 @@ class NodeMaterialObserver {
 
 				} else if ( binding.isSampledTexture === true ) {
 
+					// a texture node updated per object (uv transform) still samples the same texture for all objects
+
 					const node = binding.textureNode;
 
-					if ( ownedNodes.has( node ) === false && node.value !== null && node.value !== undefined ) {
+					if ( referencedNodes.has( node ) === false && node.value !== null && node.value !== undefined ) {
 
 						resources.push( { node, value: node.value, version: node.value.version } );
 
@@ -1227,10 +1257,22 @@ class NodeMaterialObserver {
 
 			const firstInitialization = this.firstInitialization( renderObject );
 			const uniformsChanged = this.objectUniformsChanged( renderObject, renderId );
+			const renderObjectData = this.getRenderObjectData( renderObject );
+
+			// render objects drawn with an override material (shadow maps) also depend on their own material
+
+			let sourceChanged = false;
+
+			if ( renderObject._sourceMaterial !== null ) {
+
+				const sourceVersion = this.getMaterialVersion( renderObject._sourceMaterial, renderId );
+
+				sourceChanged = renderObjectData.sourceMaterialVersion !== sourceVersion;
+				renderObjectData.sourceMaterialVersion = sourceVersion;
+
+			}
 
 			if ( firstInitialization === true ) return RenderObjectRefreshType.FULL;
-
-			const renderObjectData = this.getRenderObjectData( renderObject );
 
 			if ( isStatic === false && renderObjectData.version !== renderObject.bundle.version ) {
 
@@ -1254,7 +1296,7 @@ class NodeMaterialObserver {
 
 			const lightsData = this.getLights( renderObject.lightsNode, renderId );
 
-			if ( this.equals( renderObject, lightsData, renderId, isStatic === false ) === false || uniformsChanged === true ) {
+			if ( this.equals( renderObject, lightsData, renderId, isStatic === false ) === false || uniformsChanged === true || sourceChanged === true ) {
 
 				refreshType = RenderObjectRefreshType.FULL;
 
