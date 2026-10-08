@@ -91096,11 +91096,23 @@ class RenderPipeline {
 	}
 
 	/**
-	 * Frees internal resources.
+	 * Frees internal resources and releases the output node graph. The pipeline
+	 * can be used again, the graph is set up again by the next render call.
 	 */
 	dispose() {
 
-		this._quadMesh.material.dispose();
+		const material = this._quadMesh.material;
+
+		material.dispose();
+
+		// the material would otherwise keep the last rendered graph (and the scene
+		// passes in it) alive until the pipeline renders again
+
+		material.fragmentNode = null;
+		material.contextNode = null;
+
+		this._contextData = null;
+		this.needsUpdate = true;
 
 	}
 
