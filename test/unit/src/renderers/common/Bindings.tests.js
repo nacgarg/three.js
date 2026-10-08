@@ -90,6 +90,29 @@ export default QUnit.module( 'Renderers', () => {
 
 			} );
 
+			QUnit.test( 'bind group versions count the bind groups created by the backend', ( assert ) => {
+
+				const { bindings } = createBindings();
+
+				const uniformBuffer = { isUniformBuffer: true, release() {} };
+				const sharedGroup = new BindGroup( 'render', [ uniformBuffer ] );
+				const objectGroup = new BindGroup( 'object', [ { isUniformBuffer: true, release() {} } ] );
+
+				assert.strictEqual( sharedGroup.version, 0, 'New bind groups start at version 0.' );
+
+				bindings.getForRender( createRenderObject( [ sharedGroup, objectGroup ] ) );
+
+				assert.strictEqual( sharedGroup.version, 1, 'Creating a bind group increments its version.' );
+				assert.strictEqual( objectGroup.version, 1 );
+				assert.strictEqual( bindings.version, 2, 'The bindings version counts every created bind group.' );
+
+				bindings.getForRender( createRenderObject( [ sharedGroup ] ) );
+
+				assert.strictEqual( sharedGroup.version, 1, 'Reusing a shared bind group does not create a new one.' );
+				assert.strictEqual( bindings.version, 2 );
+
+			} );
+
 		} );
 
 	} );

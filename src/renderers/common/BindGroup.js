@@ -38,6 +38,16 @@ class BindGroup {
 		 */
 		this.id = _id ++;
 
+		/**
+		 * Incremented whenever the backend (re-)creates the bind group, e.g. after
+		 * a texture of the group was replaced. Render bundles use it to detect
+		 * recorded commands that refer to a previous bind group.
+		 *
+		 * @type {number}
+		 * @default 0
+		 */
+		this.version = 0;
+
 	}
 
 }

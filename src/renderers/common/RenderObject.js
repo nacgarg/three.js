@@ -1009,6 +1009,10 @@ class RenderObject {
 
 		}
 
+		// a recorded render bundle must not refer to the resources of a disposed render object
+
+		if ( this.bundle !== null ) this.bundle.needsUpdate = true;
+
 		this.onDispose();
 
 	}

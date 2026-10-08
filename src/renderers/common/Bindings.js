@@ -61,6 +61,14 @@ class Bindings extends DataMap {
 		this.nodes = nodes;
 
 		/**
+		 * Incremented whenever the backend creates a bind group, see {@link BindGroup#version}.
+		 *
+		 * @type {number}
+		 * @default 0
+		 */
+		this.version = 0;
+
+		/**
 		 * Renderer component for managing metrics and monitoring data.
 		 *
 		 * @type {Info}
@@ -274,6 +282,9 @@ class Bindings extends DataMap {
 				// each object defines an array of bindings (ubos, textures, samplers etc.)
 
 				this.backend.createBindings( bindGroup, bindings, '' );
+
+				bindGroup.version ++;
+				this.version ++;
 
 				groupData.bindGroup = bindGroup;
 				groupData.usedTimes = 1;
@@ -541,6 +552,9 @@ class Bindings extends DataMap {
 			updatedBindings.length = firstUpdated;
 
 			this.backend.updateBindings( bindGroup, bindings, cacheBindings ? cacheKey : '', version );
+
+			bindGroup.version ++;
+			this.version ++;
 
 		} else {
 
