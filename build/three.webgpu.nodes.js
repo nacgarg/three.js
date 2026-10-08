@@ -63795,8 +63795,10 @@ class Renderer {
 			opaque: opaqueObjects
 		} = renderList;
 
-		if ( bundles.length > 0 ) this._renderBundles( bundles, sceneRef, lightsNode );
+		// bundles after the opaque objects (the background is drawn without depth test) and before the transparent ones
+
 		if ( this.opaque === true && opaqueObjects.length > 0 ) this._renderObjects( opaqueObjects, camera, sceneRef, lightsNode );
+		if ( bundles.length > 0 ) this._renderBundles( bundles, sceneRef, lightsNode );
 		if ( this.transparent === true && transparentObjects.length > 0 ) this._renderTransparents( transparentObjects, transparentDoublePassObjects, camera, sceneRef, lightsNode );
 
 		// finish render pass
@@ -88556,7 +88558,6 @@ class WebGPUBackend extends Backend {
 
 		renderContextData.descriptor = descriptor;
 		renderContextData.encoder = encoder;
-		renderContextData.renderBundles = [];
 
 		this._resetRenderContextData( renderContextData );
 
@@ -88823,12 +88824,6 @@ class WebGPUBackend extends Backend {
 
 		const renderContextData = this.get( renderContext );
 		const occlusionQueryCount = renderContext.occlusionQueryCount;
-
-		if ( renderContextData.renderBundles.length > 0 ) {
-
-			renderContextData.currentPass.executeBundles( renderContextData.renderBundles );
-
-		}
 
 		const lastOcclusionObject = renderContextData.lastOcclusionObject;
 
@@ -90150,7 +90145,8 @@ class WebGPUBackend extends Backend {
 	}
 
 	/**
-	 * Adds a render bundle to the render context data.
+	 * Executes the given render bundle in the current render pass. Bundles are executed
+	 * in submission order with the other draw calls of the pass.
 	 *
 	 * @param {RenderContext} renderContext - The render context.
 	 * @param {RenderBundle} bundle - The render bundle to add.
@@ -90159,7 +90155,11 @@ class WebGPUBackend extends Backend {
 
 		const renderContextData = this.get( renderContext );
 
-		renderContextData.renderBundles.push( this.get( bundle ).bundleGPU );
+		renderContextData.currentPass.executeBundles( [ this.get( bundle ).bundleGPU ] );
+
+		// executeBundles() resets the pipeline, bind groups, vertex and index buffers of the pass
+
+		renderContextData.currentSets = { attributes: {}, bindingGroups: [], pipeline: null, index: null };
 
 	}
 
