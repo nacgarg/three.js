@@ -31466,6 +31466,10 @@ class RenderObject {
 
 		}
 
+		// a recorded render bundle must not refer to the resources of a disposed render object
+
+		if ( this.bundle !== null ) this.bundle.needsUpdate = true;
+
 		this.onDispose();
 
 	}
@@ -33676,6 +33680,14 @@ class Bindings extends DataMap {
 		this.nodes = nodes;
 
 		/**
+		 * Incremented whenever the backend creates a bind group, see {@link BindGroup#version}.
+		 *
+		 * @type {number}
+		 * @default 0
+		 */
+		this.version = 0;
+
+		/**
 		 * Renderer component for managing metrics and monitoring data.
 		 *
 		 * @type {Info}
@@ -33889,6 +33901,9 @@ class Bindings extends DataMap {
 				// each object defines an array of bindings (ubos, textures, samplers etc.)
 
 				this.backend.createBindings( bindGroup, bindings, '' );
+
+				bindGroup.version ++;
+				this.version ++;
 
 				groupData.bindGroup = bindGroup;
 				groupData.usedTimes = 1;
@@ -34156,6 +34171,9 @@ class Bindings extends DataMap {
 			updatedBindings.length = firstUpdated;
 
 			this.backend.updateBindings( bindGroup, bindings, cacheBindings ? cacheKey : '', version );
+
+			bindGroup.version ++;
+			this.version ++;
 
 		} else {
 
@@ -51582,6 +51600,16 @@ class BindGroup {
 		 */
 		this.id = _id$7 ++;
 
+		/**
+		 * Incremented whenever the backend (re-)creates the bind group, e.g. after
+		 * a texture of the group was replaced. Render bundles use it to detect
+		 * recorded commands that refer to a previous bind group.
+		 *
+		 * @type {number}
+		 * @default 0
+		 */
+		this.version = 0;
+
 	}
 
 }
@@ -63308,7 +63336,22 @@ class Renderer {
 
 		const renderBundle = this._bundles.get( bundleGroup, camera, renderContext );
 		const renderBundleData = this.backend.get( renderBundle );
-		const renderBundleNeedsUpdate = this._bundleNeedsUpdate( bundleGroup, renderBundleData );
+		let renderBundleNeedsUpdate = this._bundleNeedsUpdate( bundleGroup, renderBundleData );
+
+		if ( renderBundleNeedsUpdate === false ) {
+
+			// refresh the render objects of the bundle. If the recorded commands no longer match them
+			// (material or bind groups changed), record the bundle again from the same render list
+
+			if ( this._updateBundle( bundleGroup, renderBundleData ) === false ) {
+
+				renderBundleData.renderObjects.length = 0;
+
+				renderBundleNeedsUpdate = true;
+
+			}
+
+		}
 
 		if ( renderBundleNeedsUpdate ) {
 
@@ -63338,34 +63381,49 @@ class Renderer {
 
 			renderBundleData.version = bundleGroup.version;
 
-		} else {
+			this._storeBundleState( renderBundleData );
 
-			const { renderObjects } = renderBundleData;
+		}
 
-			for ( let i = 0, l = renderObjects.length; i < l; i ++ ) {
+		this.backend.addBundle( renderContext, renderBundle );
 
-				const renderObject = renderObjects[ i ];
+	}
 
-				const refreshType = this._nodes.needsRefresh( renderObject );
+	/**
+	 * Stores the material versions and bind groups the given render bundle was recorded with.
+	 *
+	 * @private
+	 * @param {Object} renderBundleData - The backend data of the render bundle.
+	 */
+	_storeBundleState( renderBundleData ) {
 
-				if ( refreshType === RenderObjectRefreshType.FULL ) {
+		const renderObjects = renderBundleData.renderObjects;
 
-					this._nodes.updateBefore( renderObject );
+		const materialVersions = renderBundleData.materialVersions || ( renderBundleData.materialVersions = [] );
+		const bindGroups = renderBundleData.bindGroups || ( renderBundleData.bindGroups = [] );
+		const bindGroupVersions = renderBundleData.bindGroupVersions || ( renderBundleData.bindGroupVersions = [] );
 
-					this._geometries.updateForRender( renderObject );
-					this._nodes.updateForRender( renderObject );
-					this._bindings.updateForRender( renderObject );
+		materialVersions.length = 0;
+		bindGroups.length = 0;
+		bindGroupVersions.length = 0;
 
-					this._nodes.updateAfter( renderObject );
+		for ( let i = 0, l = renderObjects.length; i < l; i ++ ) {
 
-				} else if ( refreshType === RenderObjectRefreshType.SHARED ) {
+			const renderObject = renderObjects[ i ];
+			const material = renderObject._sourceMaterial !== null ? renderObject._sourceMaterial : renderObject.material;
 
-					this._nodes.updateBefore( renderObject );
+			materialVersions.push( material.version );
 
-					this._nodes.updateForRender( renderObject );
-					this._bindings.updateSharedForRender( renderObject );
+			const bindings = renderObject.getBindings();
 
-					this._nodes.updateAfter( renderObject );
+			for ( let j = 0, n = bindings.length; j < n; j ++ ) {
+
+				const bindGroup = bindings[ j ];
+
+				if ( bindGroups.includes( bindGroup ) === false ) {
+
+					bindGroups.push( bindGroup );
+					bindGroupVersions.push( bindGroup.version );
 
 				}
 
@@ -63373,7 +63431,161 @@ class Renderer {
 
 		}
 
-		this.backend.addBundle( renderContext, renderBundle );
+		renderBundleData.bindingsVersion = this._bindings.version;
+
+	}
+
+	/**
+	 * Refreshes the render objects of a recorded render bundle before it is executed again.
+	 *
+	 * Returns `false` if the bundle must be recorded again: a material of the bundle changed or a
+	 * bind group used by the bundle was re-created (e.g. a texture of a material was replaced),
+	 * so the recorded commands no longer match the render objects.
+	 *
+	 * @private
+	 * @param {BundleGroup} bundleGroup - The bundle group.
+	 * @param {Object} renderBundleData - The backend data of the render bundle.
+	 * @return {boolean} Whether the recorded render bundle is still valid or not.
+	 */
+	_updateBundle( bundleGroup, renderBundleData ) {
+
+		const { renderObjects, materialVersions } = renderBundleData;
+
+		for ( let i = 0, l = renderObjects.length; i < l; i ++ ) {
+
+			const renderObject = renderObjects[ i ];
+			const sourceMaterial = renderObject._sourceMaterial;
+
+			if ( ( sourceMaterial !== null ? sourceMaterial : renderObject.material ).version !== materialVersions[ i ] ) return false;
+
+			// render objects drawn with an override material (e.g. shadow maps) are refreshed with the
+			// per-object state renderObject() would set up
+
+			const overrideState = sourceMaterial !== null ? this._applyOverrideMaterial( sourceMaterial, renderObject.material ) : null;
+
+			const refreshType = this._nodes.needsRefresh( renderObject );
+
+			if ( refreshType === RenderObjectRefreshType.FULL ) {
+
+				this._nodes.updateBefore( renderObject );
+
+				this._geometries.updateForRender( renderObject );
+				this._nodes.updateForRender( renderObject );
+				this._bindings.updateForRender( renderObject );
+
+				this._nodes.updateAfter( renderObject );
+
+			} else if ( refreshType === RenderObjectRefreshType.SHARED ) {
+
+				this._nodes.updateBefore( renderObject );
+
+				this._nodes.updateForRender( renderObject );
+				this._bindings.updateSharedForRender( renderObject );
+
+				this._nodes.updateAfter( renderObject );
+
+			}
+
+			if ( overrideState !== null ) this._restoreOverrideMaterial( renderObject.material, overrideState );
+
+		}
+
+		// bind groups re-created since the bundle was recorded (by the refresh above or by other render objects)
+
+		if ( renderBundleData.bindingsVersion !== this._bindings.version ) {
+
+			const { bindGroups, bindGroupVersions } = renderBundleData;
+
+			for ( let i = 0, l = bindGroups.length; i < l; i ++ ) {
+
+				if ( bindGroups[ i ].version !== bindGroupVersions[ i ] ) return false;
+
+			}
+
+			renderBundleData.bindingsVersion = this._bindings.version;
+
+		}
+
+		return true;
+
+	}
+
+	/**
+	 * Sets up the given override material for the given source material like {@link Renderer#renderObject}
+	 * does and returns the previous values, see {@link Renderer#_restoreOverrideMaterial}.
+	 *
+	 * @private
+	 * @param {Material} material - The source material.
+	 * @param {Material} overrideMaterial - The override material.
+	 * @return {Object} The previous values of the override material.
+	 */
+	_applyOverrideMaterial( material, overrideMaterial ) {
+
+		const state = {
+			colorNode: ( overrideMaterial.isNodeMaterial ) ? overrideMaterial.colorNode : null,
+			depthNode: ( overrideMaterial.isNodeMaterial ) ? overrideMaterial.depthNode : null,
+			positionNode: ( overrideMaterial.isNodeMaterial ) ? overrideMaterial.positionNode : null,
+			side: overrideMaterial.side,
+			displacementMap: overrideMaterial.displacementMap,
+			displacementScale: overrideMaterial.displacementScale,
+			displacementBias: overrideMaterial.displacementBias
+		};
+
+		if ( material.positionNode && material.positionNode.isNode ) {
+
+			overrideMaterial.positionNode = material.positionNode;
+
+		}
+
+		overrideMaterial.alphaTest = material.alphaTest;
+		overrideMaterial.alphaMap = material.alphaMap;
+		overrideMaterial.displacementMap = material.displacementMap;
+		overrideMaterial.displacementScale = material.displacementScale;
+		overrideMaterial.displacementBias = material.displacementBias;
+		overrideMaterial.transparent = material.transparent || material.transmission > 0 ||
+			( material.transmissionNode && material.transmissionNode.isNode ) ||
+			( material.backdropNode && material.backdropNode.isNode );
+
+		if ( overrideMaterial.isShadowPassMaterial ) {
+
+			const { colorNode, depthNode, positionNode } = this._getShadowNodes( material );
+
+			if ( this.shadowMap.type === VSMShadowMap ) {
+
+				overrideMaterial.side = ( material.shadowSide !== null ) ? material.shadowSide : material.side;
+
+			} else {
+
+				overrideMaterial.side = ( material.shadowSide !== null ) ? material.shadowSide : _shadowSide[ material.side ];
+
+			}
+
+			if ( colorNode !== null ) overrideMaterial.colorNode = colorNode;
+			if ( depthNode !== null ) overrideMaterial.depthNode = depthNode;
+			if ( positionNode !== null ) overrideMaterial.positionNode = positionNode;
+
+		}
+
+		return state;
+
+	}
+
+	/**
+	 * Restores the values of an override material changed by {@link Renderer#_applyOverrideMaterial}.
+	 *
+	 * @private
+	 * @param {Material} overrideMaterial - The override material.
+	 * @param {Object} state - The previous values.
+	 */
+	_restoreOverrideMaterial( overrideMaterial, state ) {
+
+		overrideMaterial.colorNode = state.colorNode;
+		overrideMaterial.depthNode = state.depthNode;
+		overrideMaterial.positionNode = state.positionNode;
+		overrideMaterial.side = state.side;
+		overrideMaterial.displacementMap = state.displacementMap;
+		overrideMaterial.displacementScale = state.displacementScale;
+		overrideMaterial.displacementBias = state.displacementBias;
 
 	}
 
