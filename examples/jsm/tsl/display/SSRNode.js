@@ -1326,6 +1326,11 @@ class SSRNode extends TempNode {
 		this._blurMaterial.dispose();
 		this._copyMaterial.dispose();
 
+		// release the references to the node builder's context, which can retain the graph (and scene) it was built for
+
+		this._sharedContext = null;
+		this._ssrMaterial.contextNode = null;
+
 		if ( this._importanceEnvironment !== null ) {
 
 			this._importanceEnvironment.dispose();

@@ -32062,12 +32062,29 @@ class Geometries extends DataMap {
 		this.attributeCall = new WeakMap();
 
 		/**
-		 * Stores the event listeners attached to geometries.
+		 * Weak references to the initialized geometries, used to remove
+		 * the dispose listeners attached to them in {@link Geometries#dispose}.
+		 * The geometries are not kept alive by the renderer.
 		 *
 		 * @private
-		 * @type {Map<BufferGeometry,Function>}
+		 * @type {Set<WeakRef<BufferGeometry>>}
 		 */
-		this._geometryDisposeListeners = new Map();
+		this._geometryRefs = new Set();
+
+		/**
+		 * Updates the bookkeeping of geometries that were garbage collected
+		 * without being disposed. Their GPU data is released with them.
+		 *
+		 * @private
+		 * @type {FinalizationRegistry<WeakRef<BufferGeometry>>}
+		 */
+		this._geometryRegistry = new FinalizationRegistry( ( geometryRef ) => {
+
+			this._geometryRefs.delete( geometryRef );
+
+			this.info.memory.geometries --;
+
+		} );
 
 	}
 
@@ -32112,6 +32129,11 @@ class Geometries extends DataMap {
 
 		this.info.memory.geometries ++;
 
+		// the attributes are captured instead of the render object: the listener lives as long as the
+		// (possibly shared) geometry, and a render object reference would retain its object, scene and camera
+
+		const renderObjectAttributes = renderObject.getAttributes();
+
 		const onDispose = () => {
 
 			this.info.memory.geometries --;
@@ -32146,9 +32168,9 @@ class Geometries extends DataMap {
 
 			// node attributes (TODO: Remove this bit once we support BufferAttribute.dispose())
 
-			const currentAttributes = new Set( Object.values( renderObject.geometry.attributes ) );
+			const currentAttributes = new Set( Object.values( geometry.attributes ) );
 
-			for ( const attribute of renderObject.getAttributes() ) {
+			for ( const attribute of renderObjectAttributes ) {
 
 				if ( currentAttributes.has( attribute ) === false ) {
 
@@ -32162,7 +32184,8 @@ class Geometries extends DataMap {
 
 			geometry.removeEventListener( 'dispose', onDispose );
 
-			this._geometryDisposeListeners.delete( geometry );
+			this._geometryRefs.delete( geometryRef );
+			this._geometryRegistry.unregister( geometryRef );
 
 			this.delete( geometry );
 
@@ -32172,7 +32195,13 @@ class Geometries extends DataMap {
 
 		// see #31798 why tracking separate remove listeners is required right now
 		// TODO: Re-evaluate how onDispose() is managed in this component
-		this._geometryDisposeListeners.set( geometry, onDispose );
+
+		const geometryRef = new WeakRef( geometry );
+
+		geometryData.onDispose = onDispose;
+
+		this._geometryRefs.add( geometryRef );
+		this._geometryRegistry.register( geometry, geometryRef, geometryRef );
 
 	}
 
@@ -32334,13 +32363,17 @@ class Geometries extends DataMap {
 
 	dispose() {
 
-		for ( const [ geometry, onDispose ] of this._geometryDisposeListeners.entries() ) {
+		for ( const geometryRef of this._geometryRefs ) {
 
-			geometry.removeEventListener( 'dispose', onDispose );
+			const geometry = geometryRef.deref();
+
+			if ( geometry !== undefined ) geometry.removeEventListener( 'dispose', this.get( geometry ).onDispose );
+
+			this._geometryRegistry.unregister( geometryRef );
 
 		}
 
-		this._geometryDisposeListeners.clear();
+		this._geometryRefs.clear();
 
 	}
 
@@ -33113,6 +33146,16 @@ class Pipelines extends DataMap {
 		this.bindings = null;
 
 		/**
+		 * Releases the pipeline of a compute node that was garbage collected without
+		 * being disposed. Compute pipelines are cached by the node's id, so without this
+		 * the cache entry and its program would never be removed.
+		 *
+		 * @private
+		 * @type {FinalizationRegistry<Object>}
+		 */
+		this._computeNodeRegistry = new FinalizationRegistry( ( data ) => this._releaseData( data ) );
+
+		/**
 		 * Internal cache for maintaining pipelines.
 		 * The key of the map is a cache key, the value the pipeline.
 		 *
@@ -33152,6 +33195,8 @@ class Pipelines extends DataMap {
 		if ( this._needsComputeUpdate( computeNode ) ) {
 
 			const previousPipeline = data.pipeline;
+
+			if ( previousPipeline === undefined ) this._computeNodeRegistry.register( computeNode, data, computeNode );
 
 			if ( previousPipeline ) {
 
@@ -33333,7 +33378,23 @@ class Pipelines extends DataMap {
 	 */
 	delete( object ) {
 
-		const pipeline = this.get( object ).pipeline;
+		this._computeNodeRegistry.unregister( object );
+
+		this._releaseData( this.get( object ) );
+
+		return super.delete( object );
+
+	}
+
+	/**
+	 * Releases the pipeline referenced by the given pipeline data.
+	 *
+	 * @private
+	 * @param {Object} data - The pipeline data of a render object or compute node.
+	 */
+	_releaseData( data ) {
+
+		const pipeline = data.pipeline;
 
 		if ( pipeline ) {
 
@@ -33361,9 +33422,9 @@ class Pipelines extends DataMap {
 
 			}
 
-		}
+			data.pipeline = undefined;
 
-		return super.delete( object );
+		}
 
 	}
 
@@ -39855,6 +39916,42 @@ class QuadMesh extends Mesh {
 		 */
 		this.isQuadMesh = true;
 
+		/**
+		 * The material the quad mesh was created with.
+		 *
+		 * @private
+		 * @type {Material}
+		 */
+		this._initialMaterial = this.material;
+
+		/**
+		 * The last rendered material.
+		 *
+		 * @private
+		 * @type {Material}
+		 */
+		this._renderedMaterial = this.material;
+
+		/**
+		 * Resets the material when the last rendered material is disposed. Quad meshes are often
+		 * shared module-level instances whose material is assigned right before rendering. Without
+		 * this, a disposed material and its node graph would stay referenced until the next render.
+		 *
+		 * @private
+		 * @type {Function}
+		 */
+		this._onMaterialDispose = () => {
+
+			const material = this._renderedMaterial;
+
+			material.removeEventListener( 'dispose', this._onMaterialDispose );
+
+			this._renderedMaterial = this._initialMaterial;
+
+			if ( this.material === material ) this.material = this._initialMaterial;
+
+		};
+
 	}
 
 	/**
@@ -39882,6 +39979,8 @@ class QuadMesh extends Mesh {
 	 */
 	render( renderer ) {
 
+		if ( this.material !== this._renderedMaterial ) this._trackMaterial( this.material );
+
 		const previousVertexNode = this.material.vertexNode;
 
 		this.material.vertexNode = _vertexNode;
@@ -39889,6 +39988,22 @@ class QuadMesh extends Mesh {
 		renderer.render( this, _camera );
 
 		this.material.vertexNode = previousVertexNode;
+
+	}
+
+	/**
+	 * Tracks the disposal of the given material if it isn't the initial one.
+	 *
+	 * @private
+	 * @param {Material} material - The material to track.
+	 */
+	_trackMaterial( material ) {
+
+		if ( this._renderedMaterial !== this._initialMaterial ) this._renderedMaterial.removeEventListener( 'dispose', this._onMaterialDispose );
+
+		if ( material !== this._initialMaterial ) material.addEventListener( 'dispose', this._onMaterialDispose );
+
+		this._renderedMaterial = material;
 
 	}
 
@@ -52793,7 +52908,24 @@ class Matrix4NodeUniform extends Matrix4Uniform {
 
 let _id$5 = 0;
 
+/**
+ * Shared bind groups per render context. The cache key is derived from the ids of the uniform nodes, which are
+ * unique, so an entry can only be reused while those nodes are alive. Bind groups are therefore held weakly: a group
+ * stays shared as long as a node builder state or render object uses it and is evicted when it is collected.
+ * Otherwise, the cache would retain every shared bind group ever built, including its uniform nodes and whatever
+ * their update callbacks reference.
+ *
+ * @private
+ * @type {WeakMap<Object,Map<number,WeakRef<BindGroup>>>}
+ */
 const _bindingGroupsCache = new WeakMap();
+const _bindingGroupsRegistry = /*@__PURE__*/ new FinalizationRegistry( ( { cache, key } ) => {
+
+	const ref = cache.get( key );
+
+	if ( ref !== undefined && ref.deref() === undefined ) cache.delete( key );
+
+} );
 const _functionNodeCache = new WeakMap();
 
 const sharedNodeData = new WeakMap();
@@ -53405,13 +53537,13 @@ class NodeBuilder {
 
 					for ( const uniform of binding.uniforms ) {
 
-						cacheKeyString += uniform.nodeUniform.node.id;
+						cacheKeyString += uniform.nodeUniform.node.id + ',';
 
 					}
 
 				} else {
 
-					cacheKeyString += binding.nodeUniform.id;
+					cacheKeyString += binding.nodeUniform.id + ',';
 
 				}
 
@@ -53435,13 +53567,16 @@ class NodeBuilder {
 
 			const cacheKey = hashString( cacheKeyString );
 
-			bindGroup = bindingGroupsCache.get( cacheKey );
+			const bindGroupRef = bindingGroupsCache.get( cacheKey );
+
+			bindGroup = bindGroupRef !== undefined ? bindGroupRef.deref() : undefined;
 
 			if ( bindGroup === undefined ) {
 
 				bindGroup = new BindGroup( groupName, bindings );
 
-				bindingGroupsCache.set( cacheKey, bindGroup );
+				bindingGroupsCache.set( cacheKey, new WeakRef( bindGroup ) );
+				_bindingGroupsRegistry.register( bindGroup, { cache: bindingGroupsCache, key: cacheKey } );
 
 			}
 
@@ -63662,6 +63797,11 @@ class Renderer {
 		// finish render pass
 
 		this.backend.finishRender( renderContext );
+
+		// render contexts are reused for every render with the same attachment state, so they must not
+		// retain the camera (and with it the camera's scene graph) once the render pass is finished
+
+		renderContext.camera = null;
 
 		// restore render tree
 
@@ -75362,7 +75502,7 @@ class WebGLBackend extends Backend {
 	 */
 	_isRenderCameraDepthArray( renderContext ) {
 
-		return renderContext.depthTexture && renderContext.depthTexture.isArrayTexture && renderContext.camera.isArrayCamera;
+		return renderContext.depthTexture && renderContext.depthTexture.isArrayTexture && renderContext.camera !== null && renderContext.camera.isArrayCamera;
 
 	}
 
@@ -90984,11 +91124,23 @@ class RenderPipeline {
 	}
 
 	/**
-	 * Frees internal resources.
+	 * Frees internal resources and releases the output node graph. The pipeline
+	 * can be used again, the graph is set up again by the next render call.
 	 */
 	dispose() {
 
-		this._quadMesh.material.dispose();
+		const material = this._quadMesh.material;
+
+		material.dispose();
+
+		// the material would otherwise keep the last rendered graph (and the scene
+		// passes in it) alive until the pipeline renders again
+
+		material.fragmentNode = null;
+		material.contextNode = null;
+
+		this._contextData = null;
+		this.needsUpdate = true;
 
 	}
 

@@ -132,12 +132,29 @@ class Geometries extends DataMap {
 		this.attributeCall = new WeakMap();
 
 		/**
-		 * Stores the event listeners attached to geometries.
+		 * Weak references to the initialized geometries, used to remove
+		 * the dispose listeners attached to them in {@link Geometries#dispose}.
+		 * The geometries are not kept alive by the renderer.
 		 *
 		 * @private
-		 * @type {Map<BufferGeometry,Function>}
+		 * @type {Set<WeakRef<BufferGeometry>>}
 		 */
-		this._geometryDisposeListeners = new Map();
+		this._geometryRefs = new Set();
+
+		/**
+		 * Updates the bookkeeping of geometries that were garbage collected
+		 * without being disposed. Their GPU data is released with them.
+		 *
+		 * @private
+		 * @type {FinalizationRegistry<WeakRef<BufferGeometry>>}
+		 */
+		this._geometryRegistry = new FinalizationRegistry( ( geometryRef ) => {
+
+			this._geometryRefs.delete( geometryRef );
+
+			this.info.memory.geometries --;
+
+		} );
 
 	}
 
@@ -182,6 +199,11 @@ class Geometries extends DataMap {
 
 		this.info.memory.geometries ++;
 
+		// the attributes are captured instead of the render object: the listener lives as long as the
+		// (possibly shared) geometry, and a render object reference would retain its object, scene and camera
+
+		const renderObjectAttributes = renderObject.getAttributes();
+
 		const onDispose = () => {
 
 			this.info.memory.geometries --;
@@ -216,9 +238,9 @@ class Geometries extends DataMap {
 
 			// node attributes (TODO: Remove this bit once we support BufferAttribute.dispose())
 
-			const currentAttributes = new Set( Object.values( renderObject.geometry.attributes ) );
+			const currentAttributes = new Set( Object.values( geometry.attributes ) );
 
-			for ( const attribute of renderObject.getAttributes() ) {
+			for ( const attribute of renderObjectAttributes ) {
 
 				if ( currentAttributes.has( attribute ) === false ) {
 
@@ -232,7 +254,8 @@ class Geometries extends DataMap {
 
 			geometry.removeEventListener( 'dispose', onDispose );
 
-			this._geometryDisposeListeners.delete( geometry );
+			this._geometryRefs.delete( geometryRef );
+			this._geometryRegistry.unregister( geometryRef );
 
 			this.delete( geometry );
 
@@ -242,7 +265,13 @@ class Geometries extends DataMap {
 
 		// see #31798 why tracking separate remove listeners is required right now
 		// TODO: Re-evaluate how onDispose() is managed in this component
-		this._geometryDisposeListeners.set( geometry, onDispose );
+
+		const geometryRef = new WeakRef( geometry );
+
+		geometryData.onDispose = onDispose;
+
+		this._geometryRefs.add( geometryRef );
+		this._geometryRegistry.register( geometry, geometryRef, geometryRef );
 
 	}
 
@@ -404,13 +433,17 @@ class Geometries extends DataMap {
 
 	dispose() {
 
-		for ( const [ geometry, onDispose ] of this._geometryDisposeListeners.entries() ) {
+		for ( const geometryRef of this._geometryRefs ) {
 
-			geometry.removeEventListener( 'dispose', onDispose );
+			const geometry = geometryRef.deref();
+
+			if ( geometry !== undefined ) geometry.removeEventListener( 'dispose', this.get( geometry ).onDispose );
+
+			this._geometryRegistry.unregister( geometryRef );
 
 		}
 
-		this._geometryDisposeListeners.clear();
+		this._geometryRefs.clear();
 
 	}
 
